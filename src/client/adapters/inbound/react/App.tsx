@@ -1,0 +1,282 @@
+import React, { useCallback, useRef, useState } from 'react';
+
+import type { SourceKind } from '../../../../shared/domain/contentSource';
+import { messageOf } from '../../../../shared/domain/errors';
+import type { GroundingSource } from '../../../../shared/domain/groundingSource';
+import type { ReadMode } from '../../../../shared/domain/readMode';
+import type { LoadContentCommand } from '../../../application/usecases/loadContent';
+import type { LibraryEntry } from '../../../domain/library';
+import { PlaybackState } from '../../../domain/playback';
+import {
+  describeForm,
+  isSubmittable,
+  pdfSelectionOf,
+  shareableLink,
+  validateContentForm,
+  type ContentForm,
+} from '../../../domain/contentForm';
+import { LocalFilePdfSource, RemotePdfSource } from '../../outbound/pdf/browserPdfSources';
+import { copyToClipboard, downloadTextFile } from '../../outbound/browser/browserApis';
+import { AppHeader } from './components/AppHeader';
+import { DocumentPanel } from './components/DocumentPanel';
+import { LibraryDrawer } from './components/LibraryDrawer';
+import { PlayerControls, type ReadingPreferences } from './components/PlayerControls';
+import { SourcePanel } from './components/sources/SourcePanel';
+import { StatusBanner } from './components/StatusBanner';
+import { useContainer } from './ContainerContext';
+import { useAutoScroll } from './hooks/useAutoScroll';
+import { useContentForm } from './hooks/useContentForm';
+import { useLibrary } from './hooks/useLibrary';
+import { useNarration } from './hooks/useNarration';
+import { useSleepTimer } from './hooks/useSleepTimer';
+import { useStatusMessage } from './hooks/useStatusMessage';
+
+const DOWNLOAD_FILE_NAME = 'EchoRead_Document.txt';
+const COPIED_FEEDBACK_MS = 2_000;
+
+/** What is currently on screen, once a source has been turned into text. */
+interface OpenDocument {
+  kind: SourceKind;
+  readMode: ReadMode;
+  title: string;
+  text: string;
+  sources: GroundingSource[];
+  videoSource: GroundingSource | null;
+  url?: string;
+  pdfUrl?: string;
+  shareLink: string | null;
+}
+
+const DEFAULT_PREFERENCES: ReadingPreferences = {
+  fontSize: 20,
+  autoScroll: false,
+  highlight: false,
+  sleepTimerMinutes: 0,
+};
+
+/**
+ * The driving adapter: it wires user gestures to use cases and renders the
+ * resulting state. Every decision it makes is about presentation — retrieving,
+ * chunking, synthesising and remembering all happen behind ports.
+ */
+export default function App(): React.JSX.Element {
+  const { loadContent, player, library: libraryService, voices } = useContainer();
+
+  const controller = useContentForm();
+  const narration = useNarration();
+  const library = useLibrary();
+  const [status, setStatus] = useStatusMessage();
+
+  const [openDocument, setOpenDocument] = useState<OpenDocument | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
+  const [isLibraryOpen, setLibraryOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [preferences, setPreferences] = useState<ReadingPreferences>(DEFAULT_PREFERENCES);
+
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  const updatePreferences = useCallback((changes: Partial<ReadingPreferences>) => {
+    setPreferences((previous) => ({ ...previous, ...changes }));
+  }, []);
+
+  const sleepSecondsRemaining = useSleepTimer(preferences.sleepTimerMinutes, () => {
+    player.pause();
+    updatePreferences({ sleepTimerMinutes: 0 });
+  });
+
+  useAutoScroll({
+    enabled: preferences.autoScroll,
+    progress: narration.documentProgress,
+    textRef,
+    onManualScroll: useCallback(() => updatePreferences({ autoScroll: false }), [updatePreferences]),
+  });
+
+  const fail = useCallback(
+    (message: string) => {
+      setError(message);
+      setStatus('');
+      setIsFetching(false);
+    },
+    [setStatus],
+  );
+
+  const handleSubmit = useCallback(async () => {
+    const problem = validateContentForm(controller.form);
+    if (problem) {
+      fail(problem);
+      return;
+    }
+
+    setError(null);
+    setOpenDocument(null);
+    player.reset();
+    setIsFetching(true);
+
+    try {
+      const loaded = await loadContent.execute(commandFor(controller.form, controller.pdfFile));
+      const entry = libraryService.remember({
+        kind: controller.form.kind,
+        title: describeForm(controller.form),
+        url: linkedUrl(controller.form),
+        pdfUrl: linkedPdfUrl(controller.form),
+        text: loaded.text,
+        sources: loaded.sources,
+        videoSource: loaded.videoSource,
+      });
+
+      setOpenDocument({
+        kind: entry.kind,
+        readMode: controller.form.readMode,
+        title: entry.title,
+        text: loaded.text,
+        sources: loaded.sources,
+        videoSource: loaded.videoSource,
+        url: entry.url,
+        pdfUrl: entry.pdfUrl,
+        shareLink: shareableLink(controller.form),
+      });
+
+      setIsFetching(false);
+      setStatus('Generating audio...');
+      await player.load(loaded.text);
+    } catch (caught) {
+      fail(messageOf(caught));
+    }
+  }, [controller.form, controller.pdfFile, fail, libraryService, loadContent, player, setStatus]);
+
+  const handleOpenEntry = useCallback(
+    async (entry: LibraryEntry) => {
+      setLibraryOpen(false);
+      setError(null);
+      setOpenDocument({
+        kind: entry.kind,
+        readMode: 'full',
+        title: entry.title,
+        text: entry.text,
+        sources: entry.sources,
+        videoSource: entry.videoSource,
+        url: entry.url,
+        pdfUrl: entry.pdfUrl,
+        shareLink: entry.url ?? entry.pdfUrl ?? null,
+      });
+
+      setStatus('Generating audio...');
+      await player.load(entry.text);
+    },
+    [player, setStatus],
+  );
+
+  const handleSaveForLater = useCallback(() => {
+    if (!openDocument) return;
+    libraryService.saveForLater({
+      kind: openDocument.kind,
+      title: openDocument.title,
+      url: openDocument.url,
+      pdfUrl: openDocument.pdfUrl,
+      text: openDocument.text,
+      sources: openDocument.sources,
+      videoSource: openDocument.videoSource,
+    });
+  }, [openDocument, libraryService]);
+
+  const handleCopyLink = useCallback(async () => {
+    if (!openDocument?.shareLink) return;
+    if (!(await copyToClipboard(openDocument.shareLink))) return;
+
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), COPIED_FEEDBACK_MS);
+  }, [openDocument]);
+
+  const canControlPlayback = narration.isLoaded && narration.state !== PlaybackState.Buffering && !isFetching;
+  const isBusy = isFetching || narration.state === PlaybackState.Buffering;
+
+  return (
+    <div className="bg-gray-900 min-h-screen text-white font-sans flex flex-col items-center p-4 sm:p-6 md:p-8">
+      <div className="w-full max-w-4xl">
+        <AppHeader onOpenLibrary={() => setLibraryOpen(true)} />
+
+        <SourcePanel
+          controller={controller}
+          busy={isFetching}
+          canSubmit={isSubmittable(controller.form)}
+          onSubmit={handleSubmit}
+        />
+
+        <StatusBanner status={status} error={error ?? narration.error} busy={isBusy} />
+
+        {openDocument && (
+          <DocumentPanel
+            text={openDocument.text}
+            sources={openDocument.sources}
+            videoSource={openDocument.videoSource}
+            kind={openDocument.kind}
+            readMode={openDocument.readMode}
+            progress={narration.documentProgress}
+            highlight={preferences.highlight && narration.durationSeconds > 0}
+            fontSize={preferences.fontSize}
+            shareableLink={openDocument.shareLink}
+            linkCopied={linkCopied}
+            textRef={textRef}
+            onCopyLink={handleCopyLink}
+            onSaveForLater={handleSaveForLater}
+            onDownload={() => downloadTextFile(DOWNLOAD_FILE_NAME, openDocument.text)}
+            onSeekToCharacter={(index) => player.playFromCharacter(index)}
+          />
+        )}
+
+        {narration.isLoaded && (
+          <PlayerControls
+            narration={narration}
+            voices={voices}
+            preferences={preferences}
+            sleepSecondsRemaining={sleepSecondsRemaining}
+            enabled={canControlPlayback}
+            onTogglePlay={() => (narration.state === PlaybackState.Playing ? player.pause() : void player.resume())}
+            onStop={() => player.stop()}
+            onRewind={() => player.rewind()}
+            onNext={() => player.skipToNextChunk()}
+            onSeek={(seconds) => player.seekTo(seconds)}
+            onVoiceChange={(voice) => void player.setVoice(voice)}
+            onSpeedChange={(speed) => player.setSpeed(speed)}
+            onPreferencesChange={updatePreferences}
+          />
+        )}
+      </div>
+
+      <LibraryDrawer
+        library={library}
+        open={isLibraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        onOpenEntry={(entry) => void handleOpenEntry(entry)}
+      />
+    </div>
+  );
+}
+
+/** Maps the validated form onto the command the use case understands. */
+function commandFor(form: ContentForm, pdfFile: File | null): LoadContentCommand {
+  switch (form.kind) {
+    case 'url':
+      return { kind: 'url', url: form.url, readMode: form.readMode };
+    case 'video':
+      return { kind: 'video', url: form.url };
+    case 'text':
+      return { kind: 'text', text: form.pastedText, readMode: form.readMode };
+    case 'pdf':
+      return {
+        kind: 'pdf',
+        source: form.pdf.method === 'url' ? new RemotePdfSource(form.pdf.url) : new LocalFilePdfSource(pdfFile!),
+        readMode: form.readMode,
+        selection: pdfSelectionOf(form.pdf),
+      };
+  }
+}
+
+function linkedUrl(form: ContentForm): string | undefined {
+  return form.kind === 'url' || form.kind === 'video' ? form.url : undefined;
+}
+
+function linkedPdfUrl(form: ContentForm): string | undefined {
+  return form.kind === 'pdf' && form.pdf.method === 'url' ? form.pdf.url : undefined;
+}

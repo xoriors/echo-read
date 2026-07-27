@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Secrets: real values live here, never in the repo. Copy .env.example to .env.
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
