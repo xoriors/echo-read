@@ -1,0 +1,19 @@
+# Never bake local secrets into the image.
+.env
+
+.git
+.gitignore
+node_modules
+dist
+server
+
+*.log
+npm-debug.log*
+
+# Local-only material that the running app does not need.
+migrated_prompt_history
+EchoRead.pdf
+docs
+.vscode
+.idea
+.DS_Store
