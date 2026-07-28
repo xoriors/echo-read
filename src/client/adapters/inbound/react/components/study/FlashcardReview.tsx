@@ -5,9 +5,10 @@ import { RATING_LABEL, RATINGS, type Rating } from '../../../../../domain/study'
 
 interface FlashcardReviewProps {
   cards: readonly ScheduledCardResponse[];
-  /** Grades the card and moves on; omitted while grading is unavailable. */
-  onGrade?: (cardId: string, rating: Rating) => void;
-  onSpeak?: (text: string) => void;
+  /** Grades the card and moves on. */
+  onGrade: (cardId: string, rating: Rating) => void;
+  /** Reads the card aloud: question, a pause to recall in, then the answer. */
+  onSpeakCard: (front: string, back: string) => void;
 }
 
 /**
@@ -18,7 +19,7 @@ interface FlashcardReviewProps {
  * retention they are measured to lose; the effort of trying to recall first is
  * what the whole exercise is for.
  */
-export function FlashcardReview({ cards, onGrade, onSpeak }: FlashcardReviewProps): React.JSX.Element {
+export function FlashcardReview({ cards, onGrade, onSpeakCard }: FlashcardReviewProps): React.JSX.Element {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
 
@@ -34,7 +35,7 @@ export function FlashcardReview({ cards, onGrade, onSpeak }: FlashcardReviewProp
   };
 
   const grade = (rating: Rating): void => {
-    onGrade?.(card.id, rating);
+    onGrade(card.id, rating);
     advance();
   };
 
@@ -69,37 +70,26 @@ export function FlashcardReview({ cards, onGrade, onSpeak }: FlashcardReviewProp
             >
               Show Answer
             </button>
-            {onSpeak && (
-              <button
-                onClick={() => onSpeak(card.front)}
-                className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
-                title="Read this card aloud"
-              >
-                Listen
-              </button>
-            )}
+            <button
+              onClick={() => onSpeakCard(card.front, card.back)}
+              className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+              title="Question, a pause to recall, then the answer"
+            >
+              Listen
+            </button>
           </>
         ) : (
           <>
-            {onGrade
-              ? (Object.values(RATINGS) as Rating[]).map((rating) => (
-                  <button
-                    key={rating}
-                    onClick={() => grade(rating)}
-                    className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
-                    title={`How well did you recall this? ${RATING_LABEL[rating]}`}
-                  >
-                    {RATING_LABEL[rating]}
-                  </button>
-                ))
-              : (
-                  <button
-                    onClick={advance}
-                    className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-5 rounded-lg transition-colors"
-                  >
-                    Next
-                  </button>
-                )}
+            {(Object.values(RATINGS) as Rating[]).map((rating) => (
+              <button
+                key={rating}
+                onClick={() => grade(rating)}
+                className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+                title={`How well did you recall this? ${RATING_LABEL[rating]}`}
+              >
+                {RATING_LABEL[rating]}
+              </button>
+            ))}
           </>
         )}
       </div>

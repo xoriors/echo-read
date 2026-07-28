@@ -6,7 +6,7 @@ import type { GroundingSource } from '../../../../shared/domain/groundingSource'
 import type { ReadMode } from '../../../../shared/domain/readMode';
 import type { LoadContentCommand } from '../../../application/usecases/loadContent';
 import type { LibraryEntry } from '../../../domain/library';
-import type { StudyPackResponse } from '../../../../shared/contracts/api';
+import type { ScheduledCardResponse, StudyPackResponse } from '../../../../shared/contracts/api';
 import type { DocumentPage } from '../../../../shared/domain/page';
 import { PlaybackState } from '../../../domain/playback';
 import {
@@ -66,7 +66,7 @@ const DEFAULT_PREFERENCES: ReadingPreferences = {
  * chunking, synthesising and remembering all happen behind ports.
  */
 export default function App(): React.JSX.Element {
-  const { loadContent, player, library: libraryService, study, voices } = useContainer();
+  const { loadContent, player, library: libraryService, study, cardSpeaker, voices } = useContainer();
 
   const controller = useContentForm();
   const narration = useNarration();
@@ -81,6 +81,7 @@ export default function App(): React.JSX.Element {
   const [isLearning, setLearning] = useState(false);
   const [studyPack, setStudyPack] = useState<StudyPackResponse | null>(null);
   const [isGeneratingPack, setGeneratingPack] = useState(false);
+  const [dueCards, setDueCards] = useState<ScheduledCardResponse[]>([]);
   const [preferences, setPreferences] = useState<ReadingPreferences>(DEFAULT_PREFERENCES);
 
   const textRef = useRef<HTMLParagraphElement>(null);
@@ -242,6 +243,31 @@ export default function App(): React.JSX.Element {
     }
   }, [openDocument, study]);
 
+  const refreshDueCards = useCallback(async () => {
+    try {
+      setDueCards(await study.dueCards());
+    } catch {
+      // A missing queue is not worth interrupting a reader over; the banner
+      // simply stays hidden.
+    }
+  }, [study]);
+
+  // Spacing only pays off across sessions, so what is due is asked for when
+  // the Learning tab opens rather than only after generating something.
+  useEffect(() => {
+    if (isLearning) void refreshDueCards();
+  }, [isLearning, refreshDueCards]);
+
+  const handleGrade = useCallback(
+    (cardId: string, rating: number) => {
+      void study
+        .grade(cardId, rating)
+        .then(refreshDueCards)
+        .catch((caught: unknown) => setError(messageOf(caught)));
+    },
+    [study, refreshDueCards],
+  );
+
   const canControlPlayback = narration.isLoaded && narration.state !== PlaybackState.Buffering && !isFetching;
   const isBusy = isFetching || narration.state === PlaybackState.Buffering;
 
@@ -275,7 +301,12 @@ export default function App(): React.JSX.Element {
             pack={studyPack}
             isGenerating={isGeneratingPack}
             onGenerate={() => void handleGeneratePack()}
-            onSpeak={(text) => void player.load(text)}
+            onGrade={handleGrade}
+            // Speaks through its own output rather than the narration player,
+            // so hearing a card cannot discard the document being read.
+            onSpeakCard={(front, back) => void cardSpeaker.speakCard(front, back)}
+            dueCount={dueCards.length}
+            onReviewDue={() => void refreshDueCards()}
           />
         )}
 

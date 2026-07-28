@@ -7,6 +7,7 @@ import { HttpStudyGateway } from '../adapters/outbound/http/httpStudyGateway';
 import { DEFAULT_VOICE, NARRATION_VOICES } from '../../shared/domain/voice';
 import { BroadcastStatusChannel } from '../adapters/outbound/status/broadcastStatusChannel';
 import { InMemoryLibraryRepository } from '../adapters/outbound/storage/inMemoryLibraryRepository';
+import { CardSpeaker } from '../application/cardSpeaker';
 import { NarrationPlayer } from '../application/narrationPlayer';
 import type { StatusChannel } from '../application/ports/statusChannel';
 import { LoadContentUseCase } from '../application/usecases/loadContent';
@@ -16,6 +17,8 @@ import { ManageStudyUseCase } from '../application/usecases/manageStudy';
 export interface AppContainer {
   loadContent: LoadContentUseCase;
   study: ManageStudyUseCase;
+  /** Speaks one card without disturbing the document being narrated. */
+  cardSpeaker: CardSpeaker;
   player: NarrationPlayer;
   library: LibraryService;
   status: StatusChannel;
@@ -32,8 +35,13 @@ export function createAppContainer(): AppContainer {
   const status = new BroadcastStatusChannel();
   const api = new ApiClient(status);
 
+  const speech = new HttpSpeechGateway(api);
+  // Cards get their own output so stopping one cannot interrupt the other's
+  // clock, and so a card never becomes the narrated document.
+  const cardAudio = new WebAudioOutput(NARRATION_SAMPLE_RATE);
+
   const player = new NarrationPlayer({
-    speech: new HttpSpeechGateway(api),
+    speech,
     audio: new WebAudioOutput(NARRATION_SAMPLE_RATE),
     ticker: new AnimationFrameTicker(),
     status,
@@ -43,6 +51,7 @@ export function createAppContainer(): AppContainer {
   return {
     loadContent: new LoadContentUseCase(new HttpContentGateway(api), status),
     study: new ManageStudyUseCase(new HttpStudyGateway(api), status),
+    cardSpeaker: new CardSpeaker(speech, cardAudio, status, DEFAULT_VOICE),
     player,
     library: new LibraryService(new InMemoryLibraryRepository()),
     status,

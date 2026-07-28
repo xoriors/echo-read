@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 import type { StudyPackResponse } from '../../../../../../shared/contracts/api';
-import { toAnkiTsv } from '../../../../../domain/study';
+import { toAnkiTsv, type Rating } from '../../../../../domain/study';
 import { downloadTextFile } from '../../../../outbound/browser/browserApis';
 import { ToolbarButton } from '../controls';
 import { DownloadIcon } from '../icons';
@@ -12,8 +12,13 @@ interface StudyPanelProps {
   pack: StudyPackResponse | null;
   isGenerating: boolean;
   onGenerate: () => void;
-  /** Speaks a card aloud; absent while no document is loaded. */
-  onSpeak?: (text: string) => void;
+  /** Records how well a card was recalled, which moves its schedule on. */
+  onGrade: (cardId: string, rating: Rating) => void;
+  /** Reads a card aloud: question, a pause to recall in, then the answer. */
+  onSpeakCard: (front: string, back: string) => void;
+  /** Cards due across every document, not just this one. */
+  dueCount: number;
+  onReviewDue: () => void;
 }
 
 type Tab = 'cards' | 'quiz';
@@ -32,7 +37,10 @@ export function StudyPanel({
   pack,
   isGenerating,
   onGenerate,
-  onSpeak,
+  onGrade,
+  onSpeakCard,
+  dueCount,
+  onReviewDue,
 }: StudyPanelProps): React.JSX.Element {
   const [tab, setTab] = useState<Tab>('cards');
 
@@ -84,6 +92,20 @@ export function StudyPanel({
         </ToolbarButton>
       </div>
 
+      {dueCount > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
+          <span className="text-blue-200">
+            {dueCount} card{dueCount === 1 ? '' : 's'} due for review across your documents
+          </span>
+          <button
+            onClick={onReviewDue}
+            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-1.5 px-4 rounded-lg transition-colors"
+          >
+            Review Now
+          </button>
+        </div>
+      )}
+
       {pack.preQuestions.length > 0 && (
         <div className="mb-6 p-4 bg-gray-700/40 rounded-lg border border-gray-600">
           {/* Prequestioning works by steering attention *during* reading, so
@@ -98,7 +120,7 @@ export function StudyPanel({
       )}
 
       {tab === 'cards' ? (
-        <FlashcardReview cards={pack.flashcards} onSpeak={onSpeak} />
+        <FlashcardReview cards={pack.flashcards} onGrade={onGrade} onSpeakCard={onSpeakCard} />
       ) : (
         <QuizView items={pack.quizItems} />
       )}
