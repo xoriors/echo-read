@@ -30,6 +30,27 @@ export function activeWordRange(text: string, progress: number): TextRange | nul
   return end > start ? { start, end } : null;
 }
 
+/**
+ * The first character of the word at `index`.
+ *
+ * A tap lands wherever the finger lands — usually mid-word — but narration
+ * should resume at a word boundary rather than halfway through one. Landing on
+ * whitespace between words snaps forward to the next word, so tapping a gap
+ * never replays the word before it.
+ */
+export function wordStartAt(text: string, index: number): number {
+  if (!text) return 0;
+
+  let cursor = Math.min(Math.max(index, 0), text.length);
+
+  while (cursor < text.length && !isWordCharacter(text[cursor])) cursor++;
+  if (cursor >= text.length) return text.length;
+
+  while (cursor > 0 && isWordCharacter(text[cursor - 1])) cursor--;
+
+  return cursor;
+}
+
 function isWordCharacter(character: string): boolean {
   return /\S/.test(character);
 }

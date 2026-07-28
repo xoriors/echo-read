@@ -71,6 +71,9 @@ export function DocumentPanel({
         </div>
       </div>
 
+      {/* `title` is hover-only, so touch users need the hint on the page. */}
+      <p className="text-sm text-gray-500 mb-3">Tap any word to play from there.</p>
+
       <HighlightedText
         ref={textRef}
         text={text}
