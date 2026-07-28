@@ -43,7 +43,7 @@ export class CardSpeaker {
       this.status.publish('Reading the card...');
       if (!(await this.play(front, mine))) return;
 
-      await this.wait(RECALL_PAUSE_SECONDS * 1_000, mine);
+      await this.wait(RECALL_PAUSE_SECONDS * 1_000);
       if (this.token !== mine) return;
 
       await this.play(back, mine);
@@ -73,16 +73,16 @@ export class CardSpeaker {
     if (this.token !== mine) return false;
 
     this.audio.play(clip, 0);
-    await this.wait(clip.durationSeconds * 1_000, mine);
+    await this.wait(clip.durationSeconds * 1_000);
     return this.token === mine;
   }
 
-  private wait(milliseconds: number, mine: number): Promise<void> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (this.token === mine) resolve();
-        else resolve();
-      }, milliseconds);
-    });
+  /**
+   * Resolves after the delay whether or not this request is still current;
+   * callers check `token` themselves, so cancellation is their decision rather
+   * than a promise that never settles.
+   */
+  private wait(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
   }
 }

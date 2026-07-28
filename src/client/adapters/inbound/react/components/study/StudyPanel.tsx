@@ -113,8 +113,8 @@ export function StudyPanel({
               these belong before the material rather than after it. */}
           <h3 className="text-gray-200 font-semibold mb-2">Before you read, look for:</h3>
           <ul className="list-disc list-inside space-y-1 text-gray-300">
-            {pack.preQuestions.map((pre) => (
-              <li key={pre.question}>{pre.question}</li>
+            {pack.preQuestions.map((pre, index) => (
+              <li key={`${index}-${pre.question}`}>{pre.question}</li>
             ))}
           </ul>
         </div>
@@ -145,8 +145,8 @@ export function StudyPanel({
         <div className="mt-6 p-4 bg-gray-700/40 rounded-lg border border-gray-600">
           <h3 className="text-gray-200 font-semibold mb-2">Explain in your own words:</h3>
           <ul className="list-disc list-inside space-y-1 text-gray-300">
-            {pack.selfExplanationPrompts.map((prompt) => (
-              <li key={prompt.prompt}>{prompt.prompt}</li>
+            {pack.selfExplanationPrompts.map((prompt, index) => (
+              <li key={`${index}-${prompt.prompt}`}>{prompt.prompt}</li>
             ))}
           </ul>
         </div>
