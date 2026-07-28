@@ -4,10 +4,27 @@ import type {
   AnalysisResult,
   ContentAnalyzer,
 } from '../../../application/ports/contentAnalyzer';
+import type { Logger } from '../../../application/ports/logger';
 import type { GeminiClientProvider } from './geminiClient';
 import { mapGeminiError } from './geminiErrorMapper';
+import { callWithModelFallback } from './modelFallback';
 
 export const DEFAULT_TEXT_MODEL = 'gemini-2.5-flash';
+
+/**
+ * Tried in order when the preferred model is overloaded, roughly best-first:
+ * a same-class model from the next generation, then a lighter one that is
+ * cheaper to serve and so less likely to be saturated.
+ *
+ * Every entry was checked against `generateContent` rather than taken from
+ * `models.list` — that listing still advertises retired names such as
+ * `gemini-2.5-flash-lite`, which answers 404.
+ */
+export const DEFAULT_TEXT_MODELS: readonly string[] = [
+  DEFAULT_TEXT_MODEL,
+  'gemini-3-flash-preview',
+  'gemini-flash-lite-latest',
+];
 
 interface GroundingChunk {
   web?: { uri?: string; title?: string };
@@ -17,32 +34,37 @@ interface GroundingChunk {
 export class GeminiContentAnalyzer implements ContentAnalyzer {
   constructor(
     private readonly clients: GeminiClientProvider,
-    private readonly model: string = DEFAULT_TEXT_MODEL,
+    private readonly logger: Logger,
+    private readonly models: readonly string[] = DEFAULT_TEXT_MODELS,
   ) {}
 
   async analyze({ prompt, attachments = [], useWebSearch = false }: AnalysisRequest): Promise<AnalysisResult> {
-    try {
-      const response = await this.clients.get().models.generateContent({
-        model: this.model,
-        contents: {
-          parts: [
-            ...attachments.map(({ mimeType, data }) => ({ inlineData: { mimeType, data } })),
-            { text: prompt.userPrompt },
-          ],
-        },
-        config: {
-          systemInstruction: prompt.systemInstruction,
-          ...(useWebSearch ? { tools: [{ googleSearch: {} }] } : {}),
-        },
-      });
+    return callWithModelFallback({
+      models: this.models,
+      logger: this.logger,
+      operationName: 'analyze',
+      mapError: (error) => mapGeminiError(error, 'Failed to process content with Gemini.'),
+      operation: async (model) => {
+        const response = await this.clients.get().models.generateContent({
+          model,
+          contents: {
+            parts: [
+              ...attachments.map(({ mimeType, data }) => ({ inlineData: { mimeType, data } })),
+              { text: prompt.userPrompt },
+            ],
+          },
+          config: {
+            systemInstruction: prompt.systemInstruction,
+            ...(useWebSearch ? { tools: [{ googleSearch: {} }] } : {}),
+          },
+        });
 
-      return {
-        text: response.text?.trim() ?? '',
-        sources: useWebSearch ? readGroundingSources(response) : [],
-      };
-    } catch (error) {
-      throw mapGeminiError(error, 'Failed to process content with Gemini.');
-    }
+        return {
+          text: response.text?.trim() ?? '',
+          sources: useWebSearch ? readGroundingSources(response) : [],
+        };
+      },
+    });
   }
 }
 
