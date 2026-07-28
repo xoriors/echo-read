@@ -6,6 +6,8 @@ import type { GroundingSource } from '../../../../shared/domain/groundingSource'
 import type { ReadMode } from '../../../../shared/domain/readMode';
 import type { LoadContentCommand } from '../../../application/usecases/loadContent';
 import type { LibraryEntry } from '../../../domain/library';
+import type { StudyPackResponse } from '../../../../shared/contracts/api';
+import type { DocumentPage } from '../../../../shared/domain/page';
 import { PlaybackState } from '../../../domain/playback';
 import {
   describeForm,
@@ -22,6 +24,7 @@ import { DocumentPanel } from './components/DocumentPanel';
 import { LibraryDrawer } from './components/LibraryDrawer';
 import { PlayerControls, type ReadingPreferences } from './components/PlayerControls';
 import { SourcePanel } from './components/sources/SourcePanel';
+import { StudyPanel } from './components/study/StudyPanel';
 import { StatusBanner } from './components/StatusBanner';
 import { useContainer } from './ContainerContext';
 import { useAutoScroll } from './hooks/useAutoScroll';
@@ -40,6 +43,8 @@ interface OpenDocument {
   readMode: ReadMode;
   title: string;
   text: string;
+  /** What the study pack cites. One page for sources that have no real pages. */
+  pages: DocumentPage[];
   sources: GroundingSource[];
   videoSource: GroundingSource | null;
   url?: string;
@@ -61,7 +66,7 @@ const DEFAULT_PREFERENCES: ReadingPreferences = {
  * chunking, synthesising and remembering all happen behind ports.
  */
 export default function App(): React.JSX.Element {
-  const { loadContent, player, library: libraryService, voices } = useContainer();
+  const { loadContent, player, library: libraryService, study, voices } = useContainer();
 
   const controller = useContentForm();
   const narration = useNarration();
@@ -73,6 +78,9 @@ export default function App(): React.JSX.Element {
   const [isFetching, setIsFetching] = useState(false);
   const [isLibraryOpen, setLibraryOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [isLearning, setLearning] = useState(false);
+  const [studyPack, setStudyPack] = useState<StudyPackResponse | null>(null);
+  const [isGeneratingPack, setGeneratingPack] = useState(false);
   const [preferences, setPreferences] = useState<ReadingPreferences>(DEFAULT_PREFERENCES);
 
   const textRef = useRef<HTMLParagraphElement>(null);
@@ -149,11 +157,14 @@ export default function App(): React.JSX.Element {
         videoSource: loaded.videoSource,
       });
 
+      setStudyPack(null);
+      setLearning(false);
       setOpenDocument({
         kind: entry.kind,
         readMode: controller.form.readMode,
         title: entry.title,
         text: loaded.text,
+        pages: loaded.pages,
         sources: loaded.sources,
         videoSource: loaded.videoSource,
         url: entry.url,
@@ -173,11 +184,16 @@ export default function App(): React.JSX.Element {
     async (entry: LibraryEntry) => {
       setLibraryOpen(false);
       setError(null);
+      setStudyPack(null);
+      setLearning(false);
       setOpenDocument({
         kind: entry.kind,
         readMode: 'full',
         title: entry.title,
         text: entry.text,
+        // A library entry keeps its text, not its pages, so citations fall
+        // back to the whole document.
+        pages: [{ number: 1, text: entry.text }],
         sources: entry.sources,
         videoSource: entry.videoSource,
         url: entry.url,
@@ -212,6 +228,20 @@ export default function App(): React.JSX.Element {
     setTimeout(() => setLinkCopied(false), COPIED_FEEDBACK_MS);
   }, [openDocument]);
 
+  const handleGeneratePack = useCallback(async () => {
+    if (!openDocument) return;
+
+    setError(null);
+    setGeneratingPack(true);
+    try {
+      setStudyPack(await study.generate(openDocument.title, openDocument.kind, openDocument.pages));
+    } catch (caught) {
+      setError(messageOf(caught));
+    } finally {
+      setGeneratingPack(false);
+    }
+  }, [openDocument, study]);
+
   const canControlPlayback = narration.isLoaded && narration.state !== PlaybackState.Buffering && !isFetching;
   const isBusy = isFetching || narration.state === PlaybackState.Buffering;
 
@@ -230,6 +260,26 @@ export default function App(): React.JSX.Element {
         <StatusBanner status={status} error={error ?? narration.error} busy={isBusy} />
 
         {openDocument && (
+          <div className="flex gap-2 mb-4">
+            <ModeButton active={!isLearning} onClick={() => setLearning(false)}>
+              Read
+            </ModeButton>
+            <ModeButton active={isLearning} onClick={() => setLearning(true)}>
+              Learn
+            </ModeButton>
+          </div>
+        )}
+
+        {openDocument && isLearning && (
+          <StudyPanel
+            pack={studyPack}
+            isGenerating={isGeneratingPack}
+            onGenerate={() => void handleGeneratePack()}
+            onSpeak={(text) => void player.load(text)}
+          />
+        )}
+
+        {openDocument && !isLearning && (
           <DocumentPanel
             text={openDocument.text}
             sources={openDocument.sources}
@@ -315,4 +365,25 @@ function isTypingTarget(target: EventTarget | null): boolean {
   if (target.isContentEditable) return true;
 
   return ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(target.tagName);
+}
+
+function ModeButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+        active ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+      }`}
+    >
+      {children}
+    </button>
+  );
 }

@@ -53,15 +53,29 @@ export class ApiClient {
   ) {}
 
   async post<TResponse>(path: string, body: unknown, policy: RetryPolicy): Promise<TResponse> {
+    return this.send(policy, () =>
+      fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    );
+  }
+
+  async get<TResponse>(path: string, policy: RetryPolicy): Promise<TResponse> {
+    return this.send(policy, () => fetch(path));
+  }
+
+  /** The retry behaviour both verbs share; only the request differs. */
+  private async send<TResponse>(
+    policy: RetryPolicy,
+    request: () => Promise<Response>,
+  ): Promise<TResponse> {
     let lastError: unknown;
 
     for (let attempt = 0; attempt < policy.attempts; attempt++) {
       try {
-        const response = await fetch(path, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
+        const response = await request();
 
         if (response.ok) return (await response.json()) as TResponse;
         throw await toAppError(response);

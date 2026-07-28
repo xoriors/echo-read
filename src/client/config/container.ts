@@ -3,6 +3,7 @@ import { NARRATION_SAMPLE_RATE, WebAudioOutput } from '../adapters/outbound/audi
 import { ApiClient } from '../adapters/outbound/http/apiClient';
 import { HttpContentGateway } from '../adapters/outbound/http/httpContentGateway';
 import { HttpSpeechGateway } from '../adapters/outbound/http/httpSpeechGateway';
+import { HttpStudyGateway } from '../adapters/outbound/http/httpStudyGateway';
 import { DEFAULT_VOICE, NARRATION_VOICES } from '../../shared/domain/voice';
 import { BroadcastStatusChannel } from '../adapters/outbound/status/broadcastStatusChannel';
 import { InMemoryLibraryRepository } from '../adapters/outbound/storage/inMemoryLibraryRepository';
@@ -10,9 +11,11 @@ import { NarrationPlayer } from '../application/narrationPlayer';
 import type { StatusChannel } from '../application/ports/statusChannel';
 import { LoadContentUseCase } from '../application/usecases/loadContent';
 import { LibraryService } from '../application/usecases/manageLibrary';
+import { ManageStudyUseCase } from '../application/usecases/manageStudy';
 
 export interface AppContainer {
   loadContent: LoadContentUseCase;
+  study: ManageStudyUseCase;
   player: NarrationPlayer;
   library: LibraryService;
   status: StatusChannel;
@@ -39,6 +42,7 @@ export function createAppContainer(): AppContainer {
 
   return {
     loadContent: new LoadContentUseCase(new HttpContentGateway(api), status),
+    study: new ManageStudyUseCase(new HttpStudyGateway(api), status),
     player,
     library: new LibraryService(new InMemoryLibraryRepository()),
     status,
