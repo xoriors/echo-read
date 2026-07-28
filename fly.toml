@@ -3,7 +3,7 @@
 # `app` must be globally unique across fly.io — change it if this name is
 # taken, or run `flyctl launch --no-deploy` to have one generated.
 app = "echo-read"
-primary_region = "iad"
+primary_region = "fra"
 
 [build]
   dockerfile = "Dockerfile"
