@@ -6,13 +6,15 @@ import { contentRouter, type ContentUseCases } from './contentRouter';
 import { errorMiddleware } from './errorMiddleware';
 import { ownerIdentity } from './ownerIdentity';
 import { speechRouter } from './speechRouter';
+import { studyRouter, type StudyUseCases } from './studyRouter';
 import { mountStaticSite } from './staticSite';
 
 /** Uploaded PDFs arrive as base64 in the JSON body, so the limit is generous. */
 const JSON_BODY_LIMIT = '50mb';
 
 export interface HttpServerOptions {
-  useCases: ContentUseCases & { speakText: SpeakTextUseCase };
+  useCases: ContentUseCases & { speakText: SpeakTextUseCase } & Pick<StudyUseCases, 'buildStudyPack'>;
+  studyRepository: StudyUseCases['studyRepository'];
   logger: Logger;
   isProduction: boolean;
   sessionSecret: string;
@@ -24,6 +26,7 @@ export interface HttpServerOptions {
  */
 export async function createHttpServer({
   useCases,
+  studyRepository,
   logger,
   isProduction,
   sessionSecret,
@@ -36,6 +39,7 @@ export async function createHttpServer({
   app.use(ownerIdentity(sessionSecret, { secure: isProduction }));
   app.use(contentRouter(useCases));
   app.use(speechRouter(useCases.speakText));
+  app.use(studyRouter({ buildStudyPack: useCases.buildStudyPack, studyRepository }));
 
   await mountStaticSite(app, { isProduction });
 

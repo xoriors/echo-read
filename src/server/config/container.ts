@@ -8,12 +8,15 @@ import { DEFAULT_TTS_MODELS, GeminiSpeechSynthesizer } from '../adapters/outboun
 import { ConsoleLogger } from '../adapters/outbound/logging/consoleLogger';
 import { migrate } from '../adapters/outbound/sqlite/migrations';
 import { SqliteDatabaseProvider } from '../adapters/outbound/sqlite/sqliteDatabase';
+import { SqliteStudyRepository } from '../adapters/outbound/sqlite/sqliteStudyRepository';
 import type { Logger } from '../application/ports/logger';
 import { AnalyzeVideoUseCase } from '../application/usecases/analyzeVideo';
 import { ReadArticleUseCase } from '../application/usecases/readArticle';
 import { ReadPdfUseCase } from '../application/usecases/readPdf';
 import { SpeakTextUseCase } from '../application/usecases/speakText';
 import { SummarizeTextUseCase } from '../application/usecases/summarizeText';
+import { BuildStudyPackUseCase } from '../application/usecases/buildStudyPack';
+import type { StudyRepository } from '../application/ports/studyRepository';
 import type { ServerConfig } from './environment';
 
 export interface ServerContainer {
@@ -26,7 +29,9 @@ export interface ServerContainer {
     summarizeText: SummarizeTextUseCase;
     readPdf: ReadPdfUseCase;
     speakText: SpeakTextUseCase;
+    buildStudyPack: BuildStudyPackUseCase;
   };
+  studyRepository: StudyRepository;
 }
 
 /**
@@ -87,6 +92,8 @@ export function createServerContainer(config: ServerConfig): ServerContainer {
       summarizeText: new SummarizeTextUseCase(analyzer),
       readPdf: new ReadPdfUseCase(analyzer),
       speakText: new SpeakTextUseCase(synthesizer),
+      buildStudyPack: new BuildStudyPackUseCase(analyzer, logger),
     },
+    studyRepository: new SqliteStudyRepository(database),
   };
 }

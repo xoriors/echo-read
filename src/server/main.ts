@@ -5,10 +5,11 @@ import { loadServerConfig } from './config/environment';
 /** Process entry point: read the environment, wire the hexagon, listen. */
 async function main(): Promise<void> {
   const config = loadServerConfig();
-  const { logger, useCases } = createServerContainer(config);
+  const { logger, useCases, studyRepository } = createServerContainer(config);
 
   const app = await createHttpServer({
     useCases,
+    studyRepository,
     logger,
     isProduction: config.isProduction,
     sessionSecret: config.sessionSecret,
