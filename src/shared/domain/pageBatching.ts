@@ -17,8 +17,23 @@ export interface PageBatch {
   pages: DocumentPage[];
   firstPage: number;
   lastPage: number;
+  /** The pages joined as the reader would hear them. */
   text: string;
+  /**
+   * The same text with a marker before each page.
+   *
+   * This is what a model is shown when it has to cite pages. Without markers
+   * the batch is one undifferentiated block and a page number can only be
+   * guessed — in testing the model quoted page two verbatim and attributed it
+   * to page one, every time.
+   */
+  labelledText: string;
   characters: number;
+}
+
+/** Marks a page boundary for a model. Kept terse so it costs few tokens. */
+export function pageMarker(number: number): string {
+  return `[Page ${number}]`;
 }
 
 /** Chosen to leave the model ample output budget for a batch's worth of items. */
@@ -65,6 +80,9 @@ export function batchPages(
 
 function toBatch(index: number, pages: DocumentPage[]): PageBatch {
   const text = pages.map((page) => page.text).join(PAGE_SEPARATOR);
+  const labelledText = pages
+    .map((page) => `${pageMarker(page.number)}\n${page.text}`)
+    .join(PAGE_SEPARATOR);
 
   return {
     index,
@@ -72,6 +90,7 @@ function toBatch(index: number, pages: DocumentPage[]): PageBatch {
     firstPage: pages[0].number,
     lastPage: pages[pages.length - 1].number,
     text,
+    labelledText,
     characters: text.length,
   };
 }

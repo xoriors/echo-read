@@ -38,7 +38,12 @@ export class GeminiContentAnalyzer implements ContentAnalyzer {
     private readonly models: readonly string[] = DEFAULT_TEXT_MODELS,
   ) {}
 
-  async analyze({ prompt, attachments = [], useWebSearch = false }: AnalysisRequest): Promise<AnalysisResult> {
+  async analyze({
+    prompt,
+    attachments = [],
+    useWebSearch = false,
+    responseSchema,
+  }: AnalysisRequest): Promise<AnalysisResult> {
     return callWithModelFallback({
       models: this.models,
       logger: this.logger,
@@ -56,6 +61,12 @@ export class GeminiContentAnalyzer implements ContentAnalyzer {
           config: {
             systemInstruction: prompt.systemInstruction,
             ...(useWebSearch ? { tools: [{ googleSearch: {} }] } : {}),
+            // Search and structured output are mutually exclusive in the API,
+            // and nothing needs both: grounding is for prose, schemas are for
+            // results that code consumes.
+            ...(responseSchema && !useWebSearch
+              ? { responseMimeType: 'application/json', responseSchema }
+              : {}),
           },
         });
 

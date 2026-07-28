@@ -1,4 +1,5 @@
 import { isRangedSelection, type PdfSelection } from '../../shared/domain/contentSource';
+import { OPTIONS_PER_QUIZ_ITEM } from '../../shared/domain/studyPack';
 import type { ReadMode, SummaryMode } from '../../shared/domain/readMode';
 
 /**
@@ -127,4 +128,74 @@ export function videoAnalysisPrompt(url: string): Prompt {
 
 export function isRefusal(text: string): boolean {
   return text.trim().startsWith(REFUSAL_SENTINEL);
+}
+
+/**
+ * Asks for a study pack over one batch of pages.
+ *
+ * Three things here are deliberate, and all three come from the evidence this
+ * feature is built on.
+ *
+ * Pre-questions come *before* the content, because prequestioning works by
+ * directing attention during reading rather than testing after it.
+ *
+ * The instruction is to produce retrieval items, never a summary. Summarising
+ * is rated low-utility; practice testing is one of only two techniques rated
+ * high, so a pack that drifts into prose has failed at its purpose.
+ *
+ * Distractors get the most specific instruction in the prompt because they are
+ * the measured weak point: across the AI-MCQ studies, distractor efficiency is
+ * consistently where generated items fall short of human-written ones. Asking
+ * for three, requiring each to be defensibly wrong, and requiring the model to
+ * check each against the source is aimed squarely at that.
+ *
+ * `sourcePage` must be a real page from this batch and `sourceQuote` must be
+ * copied verbatim, because the caller verifies the quote occurs on the cited
+ * page and discards the item when it does not.
+ */
+export function studyPackPrompt(
+  batchText: string,
+  { firstPage, lastPage, itemCount }: { firstPage: number; lastPage: number; itemCount: number },
+): Prompt {
+  const pageRange =
+    firstPage === lastPage ? `page ${firstPage}` : `pages ${firstPage} to ${lastPage}`;
+
+  return {
+    systemInstruction: [
+      'You write study material that makes a learner recall, not reread.',
+      'You never summarise: every item you produce must require the learner to retrieve something.',
+      'You ground every item in the supplied text and cite the page it came from.',
+      'You never invent a page number or a quotation.',
+    ].join(' '),
+    userPrompt: `The text below is ${pageRange} of a document. Each page begins with a
+marker like [Page 7]; everything after a marker belongs to that page, until the
+next marker. Use those markers to decide which page a quotation came from.
+
+Produce study material as JSON matching the supplied schema.
+
+Requirements:
+- ${itemCount} flashcards. Front asks something specific; back answers it in one or two sentences.
+- ${Math.max(1, Math.round(itemCount / 2))} multiple-choice questions, each with exactly ${OPTIONS_PER_QUIZ_ITEM} options.
+  * Exactly one option is correct.
+  * The other ${OPTIONS_PER_QUIZ_ITEM - 1} must be plausible to someone who has not read carefully, yet
+    unambiguously wrong to someone who has. Before emitting each wrong option,
+    check it against the text and confirm the text contradicts it or does not
+    support it. Do not use "all of the above", "none of the above", joke
+    options, or options that are obviously absurd.
+  * Give the rationale for the correct answer.
+  * Tag each with a Bloom level: recall, understand, apply, or analyse. Do not
+    make every item recall.
+- 2 to 3 pre-questions: what a reader should be looking for in this passage,
+  asked before they read it.
+- 1 self-explanation prompt asking the learner to explain a key idea in their
+  own words.
+
+For every flashcard, question and self-explanation prompt:
+- "sourcePage" must be a page number between ${firstPage} and ${lastPage}.
+- "sourceQuote" must be copied word for word from the text below, from that
+  page, short enough to locate the claim (roughly 5 to 20 words).
+
+Text:
+${batchText}`,
+  };
 }

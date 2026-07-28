@@ -13,6 +13,14 @@ export interface AnalysisRequest {
   attachments?: readonly DocumentAttachment[];
   /** Let the model consult the live web and report what it grounded on. */
   useWebSearch?: boolean;
+  /**
+   * Demand JSON matching this schema instead of prose.
+   *
+   * Used where the result is consumed by code rather than read by a person —
+   * a study pack is merged and stored unattended, so a malformed shape has
+   * nowhere to be caught.
+   */
+  responseSchema?: object;
 }
 
 export interface AnalysisResult {
