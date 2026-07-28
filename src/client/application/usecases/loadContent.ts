@@ -1,6 +1,13 @@
 import type { PdfSelection } from '../../../shared/domain/contentSource';
 import { ContentUnavailableError } from '../../../shared/domain/errors';
 import type { GroundingSource } from '../../../shared/domain/groundingSource';
+import {
+  hasTextLayer,
+  pagesInRange,
+  pagesToText,
+  singlePage,
+  type DocumentPage,
+} from '../../../shared/domain/page';
 import { READ_MODE_ACTION, isSummaryMode, type ReadMode } from '../../../shared/domain/readMode';
 import type { ContentGateway } from '../ports/contentGateway';
 import type { PdfSource } from '../ports/pdfSource';
@@ -16,6 +23,11 @@ export interface LoadedContent {
   text: string;
   sources: GroundingSource[];
   videoSource: GroundingSource | null;
+  /**
+   * The document as pages. Sources without real pages collapse to one, so
+   * everything downstream can cite a page without knowing the source kind.
+   */
+  pages: DocumentPage[];
 }
 
 /**
@@ -44,7 +56,49 @@ export class LoadContentUseCase {
       text: retrieved.text,
       sources: retrieved.sources ?? [],
       videoSource: retrieved.videoSource ?? null,
+      pages: retrieved.pages ?? singlePage(retrieved.text),
     };
+  }
+
+  /**
+   * Prefers the PDF's own text layer, and only sends bytes to the model when
+   * there isn't one.
+   *
+   * Reading the text locally is better on every axis available: a page range
+   * becomes an exact slice instead of an instruction the model may ignore,
+   * "full" needs no model call at all, and nothing is truncated on the way.
+   *
+   * Two cases still need the model. A scanned PDF has no text to extract, and
+   * a chapter range cannot be resolved from a text layer — chapters are a
+   * structure pdf.js does not report — so both fall back to sending bytes.
+   */
+  private async retrievePdf(command: Extract<LoadContentCommand, { kind: 'pdf' }>) {
+    const needsModelForStructure = command.selection.mode === 'chapters';
+
+    if (!needsModelForStructure) {
+      this.status.publish('Reading PDF...');
+      const pages = await command.source.readPages();
+
+      if (hasTextLayer(pages)) {
+        const selected =
+          command.selection.mode === 'pages'
+            ? pagesInRange(pages, command.selection.start, command.selection.end)
+            : pages;
+
+        const text = pagesToText(selected);
+
+        if (!isSummaryMode(command.readMode)) return { text, sources: [], pages: selected };
+
+        this.status.publish(`${READ_MODE_ACTION[command.readMode]} PDF...`);
+        const summary = await this.gateway.summarizeText(text, command.readMode);
+        return { ...summary, pages: singlePage(summary.text) };
+      }
+    }
+
+    this.status.publish('Downloading PDF...');
+    const base64Data = await command.source.readAsBase64();
+    this.status.publish(`${READ_MODE_ACTION[command.readMode]} PDF...`);
+    return this.gateway.extractPdf(base64Data, command.readMode, command.selection);
   }
 
   private async retrieve(command: LoadContentCommand) {
@@ -61,12 +115,8 @@ export class LoadContentUseCase {
           ? this.gateway.summarizeText(command.text, command.readMode)
           : { text: command.text, sources: [] };
 
-      case 'pdf': {
-        this.status.publish('Downloading PDF...');
-        const base64Data = await command.source.readAsBase64();
-        this.status.publish(`${READ_MODE_ACTION[command.readMode]} PDF...`);
-        return this.gateway.extractPdf(base64Data, command.readMode, command.selection);
-      }
+      case 'pdf':
+        return this.retrievePdf(command);
     }
   }
 }

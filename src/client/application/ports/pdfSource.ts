@@ -1,3 +1,5 @@
+import type { DocumentPage } from '../../../shared/domain/page';
+
 /**
  * Driven port: somewhere a PDF's bytes can be obtained from.
  *
@@ -9,4 +11,13 @@ export interface PdfSource {
   readonly name: string;
 
   readAsBase64(): Promise<string>;
+
+  /**
+   * The text layer, page by page.
+   *
+   * A scanned PDF holds images rather than text and yields nothing usable
+   * here. Callers test the result with `hasTextLayer` and fall back to
+   * {@link readAsBase64}, letting the model read those pages visually.
+   */
+  readPages(): Promise<DocumentPage[]>;
 }

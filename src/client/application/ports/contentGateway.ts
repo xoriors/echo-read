@@ -1,5 +1,6 @@
 import type { PdfSelection } from '../../../shared/domain/contentSource';
 import type { GroundingSource } from '../../../shared/domain/groundingSource';
+import type { DocumentPage } from '../../../shared/domain/page';
 import type { ReadMode, SummaryMode } from '../../../shared/domain/readMode';
 
 export interface RetrievedContent {
@@ -7,6 +8,8 @@ export interface RetrievedContent {
   sources: GroundingSource[];
   /** Only set when the content came from analysing a video. */
   videoSource?: GroundingSource | null;
+  /** Set when the text arrived already split into pages. */
+  pages?: DocumentPage[];
 }
 
 /**
