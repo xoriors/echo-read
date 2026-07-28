@@ -4,6 +4,7 @@ import type { Logger } from '../../../application/ports/logger';
 import type { SpeakTextUseCase } from '../../../application/usecases/speakText';
 import { contentRouter, type ContentUseCases } from './contentRouter';
 import { errorMiddleware } from './errorMiddleware';
+import { ownerIdentity } from './ownerIdentity';
 import { speechRouter } from './speechRouter';
 import { mountStaticSite } from './staticSite';
 
@@ -14,16 +15,25 @@ export interface HttpServerOptions {
   useCases: ContentUseCases & { speakText: SpeakTextUseCase };
   logger: Logger;
   isProduction: boolean;
+  sessionSecret: string;
 }
 
 /**
  * Assembles the Express application: body parsing, the API routers, the SPA,
  * and finally the error translator.
  */
-export async function createHttpServer({ useCases, logger, isProduction }: HttpServerOptions): Promise<Express> {
+export async function createHttpServer({
+  useCases,
+  logger,
+  isProduction,
+  sessionSecret,
+}: HttpServerOptions): Promise<Express> {
   const app = express();
 
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
+  // Every request carries an owner, so a study deck has something to belong to
+  // without anyone having created an account.
+  app.use(ownerIdentity(sessionSecret, { secure: isProduction }));
   app.use(contentRouter(useCases));
   app.use(speechRouter(useCases.speakText));
 

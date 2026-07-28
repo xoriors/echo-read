@@ -6,6 +6,8 @@ import { GeminiClientProvider } from '../adapters/outbound/gemini/geminiClient';
 import { DEFAULT_TEXT_MODELS, GeminiContentAnalyzer } from '../adapters/outbound/gemini/geminiContentAnalyzer';
 import { DEFAULT_TTS_MODELS, GeminiSpeechSynthesizer } from '../adapters/outbound/gemini/geminiSpeechSynthesizer';
 import { ConsoleLogger } from '../adapters/outbound/logging/consoleLogger';
+import { migrate } from '../adapters/outbound/sqlite/migrations';
+import { SqliteDatabaseProvider } from '../adapters/outbound/sqlite/sqliteDatabase';
 import type { Logger } from '../application/ports/logger';
 import { AnalyzeVideoUseCase } from '../application/usecases/analyzeVideo';
 import { ReadArticleUseCase } from '../application/usecases/readArticle';
@@ -16,6 +18,8 @@ import type { ServerConfig } from './environment';
 
 export interface ServerContainer {
   logger: Logger;
+  /** Opened on first use; a broken data directory is not a boot failure. */
+  database: SqliteDatabaseProvider;
   useCases: {
     readArticle: ReadArticleUseCase;
     analyzeVideo: AnalyzeVideoUseCase;
@@ -32,6 +36,22 @@ export interface ServerContainer {
  */
 export function createServerContainer(config: ServerConfig): ServerContainer {
   const logger = new ConsoleLogger(config.isProduction ? 'info' : 'debug');
+
+  const database = new SqliteDatabaseProvider(config.dataDir);
+
+  // Migrating at boot is safe because a volume attaches to one machine, so
+  // there is exactly one writer. Failing here must not take the server down:
+  // narration does not need storage, and a reader should still be able to
+  // listen to a document while study features are unavailable.
+  try {
+    const { applied, skipped } = migrate(database.get());
+    logger.info('Storage ready', { file: database.file, applied, alreadyApplied: skipped.length });
+  } catch (error) {
+    logger.error('Storage unavailable; study features are disabled', {
+      file: database.file,
+      reason: (error as Error).message,
+    });
+  }
 
   const geminiClients = new GeminiClientProvider(config.geminiApiKey);
 
@@ -60,6 +80,7 @@ export function createServerContainer(config: ServerConfig): ServerContainer {
 
   return {
     logger,
+    database,
     useCases: {
       readArticle: new ReadArticleUseCase(articleFetcher, analyzer, logger),
       analyzeVideo: new AnalyzeVideoUseCase(analyzer),

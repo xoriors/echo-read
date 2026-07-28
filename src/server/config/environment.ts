@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 export interface ServerConfig {
@@ -5,6 +6,13 @@ export interface ServerConfig {
   isProduction: boolean;
   geminiApiKey?: string;
   browserlessApiKey?: string;
+  /** Where SQLite lives. The fly volume is mounted here in production. */
+  dataDir: string;
+  /**
+   * Signs the owner cookie. Generated when unset so local development works,
+   * which also means restarting locally issues everyone a fresh identity.
+   */
+  sessionSecret: string;
   /** Preference order for text generation; empty means "use the built-in list". */
   geminiTextModels: string[];
   /** Preference order for speech; empty means "use the built-in list". */
@@ -50,6 +58,8 @@ export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCo
     isProduction: env.NODE_ENV === 'production',
     geminiApiKey: readSecret(env, 'GEMINI_API_KEY'),
     browserlessApiKey: readSecret(env, 'BROWSERLESS_API_KEY'),
+    dataDir: readSecret(env, 'DATA_DIR') ?? (env.NODE_ENV === 'production' ? '/data' : '.data'),
+    sessionSecret: readSecret(env, 'SESSION_SECRET') ?? randomUUID(),
     geminiTextModels: readModelList(env, 'GEMINI_TEXT_MODELS'),
     geminiTtsModels: readModelList(env, 'GEMINI_TTS_MODELS'),
   };

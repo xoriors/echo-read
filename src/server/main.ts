@@ -7,7 +7,12 @@ async function main(): Promise<void> {
   const config = loadServerConfig();
   const { logger, useCases } = createServerContainer(config);
 
-  const app = await createHttpServer({ useCases, logger, isProduction: config.isProduction });
+  const app = await createHttpServer({
+    useCases,
+    logger,
+    isProduction: config.isProduction,
+    sessionSecret: config.sessionSecret,
+  });
 
   app.listen(config.port, '0.0.0.0', () => {
     logger.info(`Server running on http://localhost:${config.port}`);
