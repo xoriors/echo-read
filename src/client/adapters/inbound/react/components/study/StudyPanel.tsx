@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import type { StudyPackResponse } from '../../../../../../shared/contracts/api';
+import type { ScheduledCardResponse, StudyPackResponse } from '../../../../../../shared/contracts/api';
 import { toAnkiTsv, type Rating } from '../../../../../domain/study';
 import { downloadTextFile } from '../../../../outbound/browser/browserApis';
 import { ToolbarButton } from '../controls';
@@ -17,8 +17,7 @@ interface StudyPanelProps {
   /** Reads a card aloud: question, a pause to recall in, then the answer. */
   onSpeakCard: (front: string, back: string) => void;
   /** Cards due across every document, not just this one. */
-  dueCount: number;
-  onReviewDue: () => void;
+  dueCards: readonly ScheduledCardResponse[];
 }
 
 type Tab = 'cards' | 'quiz';
@@ -39,10 +38,10 @@ export function StudyPanel({
   onGenerate,
   onGrade,
   onSpeakCard,
-  dueCount,
-  onReviewDue,
+  dueCards,
 }: StudyPanelProps): React.JSX.Element {
   const [tab, setTab] = useState<Tab>('cards');
+  const [reviewingDue, setReviewingDue] = useState(false);
 
   if (isGenerating) {
     return (
@@ -92,16 +91,18 @@ export function StudyPanel({
         </ToolbarButton>
       </div>
 
-      {dueCount > 0 && (
+      {dueCards.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
           <span className="text-blue-200">
-            {dueCount} card{dueCount === 1 ? '' : 's'} due for review across your documents
+            {reviewingDue
+              ? `Reviewing ${dueCards.length} due card${dueCards.length === 1 ? '' : 's'} from across your documents`
+              : `${dueCards.length} card${dueCards.length === 1 ? '' : 's'} due for review across your documents`}
           </span>
           <button
-            onClick={onReviewDue}
+            onClick={() => setReviewingDue((current) => !current)}
             className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-1.5 px-4 rounded-lg transition-colors"
           >
-            Review Now
+            {reviewingDue ? 'Back to This Document' : 'Review Now'}
           </button>
         </div>
       )}
@@ -119,8 +120,23 @@ export function StudyPanel({
         </div>
       )}
 
-      {tab === 'cards' ? (
-        <FlashcardReview cards={pack.flashcards} onGrade={onGrade} onSpeakCard={onSpeakCard} />
+      {/* Reviewing what is due spans every document, so it replaces this
+          document's deck rather than sitting beside it — the schedule is the
+          thing being followed, not the file that happens to be open. */}
+      {reviewingDue ? (
+        <FlashcardReview
+          key="due"
+          cards={dueCards}
+          onGrade={onGrade}
+          onSpeakCard={onSpeakCard}
+        />
+      ) : tab === 'cards' ? (
+        <FlashcardReview
+          key="pack"
+          cards={pack.flashcards}
+          onGrade={onGrade}
+          onSpeakCard={onSpeakCard}
+        />
       ) : (
         <QuizView items={pack.quizItems} />
       )}
