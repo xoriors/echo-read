@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { SourceKind } from '../../../../shared/domain/contentSource';
 import { messageOf } from '../../../../shared/domain/errors';
@@ -51,6 +51,7 @@ const DEFAULT_PREFERENCES: ReadingPreferences = {
   fontSize: 20,
   autoScroll: false,
   highlight: false,
+  tapToSeek: false,
   sleepTimerMinutes: 0,
 };
 
@@ -84,6 +85,29 @@ export default function App(): React.JSX.Element {
     player.pause();
     updatePreferences({ sleepTimerMinutes: 0 });
   });
+
+  const togglePlay = useCallback(() => {
+    if (narration.state === PlaybackState.Playing) player.pause();
+    else void player.resume();
+  }, [narration.state, player]);
+
+  // Space is the usual play/pause key for a player, but it also types a space
+  // and activates a focused button — so it is only claimed when the reader is
+  // not typing and has not focused a control.
+  useEffect(() => {
+    if (!narration.isLoaded) return;
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.code !== 'Space' || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+
+      event.preventDefault();
+      togglePlay();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [narration.isLoaded, togglePlay]);
 
   useAutoScroll({
     enabled: preferences.autoScroll,
@@ -214,6 +238,7 @@ export default function App(): React.JSX.Element {
             readMode={openDocument.readMode}
             progress={narration.documentProgress}
             highlight={preferences.highlight && narration.durationSeconds > 0}
+            tapToSeek={preferences.tapToSeek}
             fontSize={preferences.fontSize}
             shareableLink={openDocument.shareLink}
             linkCopied={linkCopied}
@@ -232,7 +257,7 @@ export default function App(): React.JSX.Element {
             preferences={preferences}
             sleepSecondsRemaining={sleepSecondsRemaining}
             enabled={canControlPlayback}
-            onTogglePlay={() => (narration.state === PlaybackState.Playing ? player.pause() : void player.resume())}
+            onTogglePlay={togglePlay}
             onStop={() => player.stop()}
             onRewind={() => player.rewind()}
             onNext={() => player.skipToNextChunk()}
@@ -279,4 +304,15 @@ function linkedUrl(form: ContentForm): string | undefined {
 
 function linkedPdfUrl(form: ContentForm): string | undefined {
   return form.kind === 'pdf' && form.pdf.method === 'url' ? form.pdf.url : undefined;
+}
+
+/**
+ * Whether a key event came from somewhere a space belongs — a field, or a
+ * control that space would activate. Editable hosts report `isContentEditable`.
+ */
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+
+  return ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(target.tagName);
 }

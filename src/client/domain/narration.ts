@@ -12,6 +12,14 @@ export interface NarrationPosition {
   chunkIndex: number;
   /** 0–1 within the chunk. */
   chunkProgress: number;
+  /**
+   * Character offset within the chunk.
+   *
+   * Speech is not evenly paced, so a character fraction is a poor stand-in for
+   * a time offset. Callers that need to land on an exact word use this to
+   * synthesise from it instead of estimating a seek position.
+   */
+  characterInChunk: number;
 }
 
 /**
@@ -65,7 +73,7 @@ export class Narration {
   }
 
   /** Overall progress through the document, 0–1. */
-  progressAt({ chunkIndex, chunkProgress }: NarrationPosition): number {
+  progressAt({ chunkIndex, chunkProgress }: Omit<NarrationPosition, 'characterInChunk'>): number {
     const chunk = this.chunkAt(chunkIndex);
     if (!chunk || this.spokenLength === 0) return 0;
 
@@ -75,17 +83,18 @@ export class Narration {
 
   /** Inverse of {@link progressAt}: which chunk covers this character index. */
   locate(characterIndex: number): NarrationPosition {
-    if (this.isEmpty) return { chunkIndex: 0, chunkProgress: 0 };
+    if (this.isEmpty) return { chunkIndex: 0, chunkProgress: 0, characterInChunk: 0 };
 
     const target = Math.max(0, characterIndex);
     const chunk =
       this.chunks.find((candidate) => target < candidate.startOffset + candidate.text.length) ??
       this.chunks[this.chunks.length - 1];
 
-    const within = target - chunk.startOffset;
+    const within = Math.min(Math.max(target - chunk.startOffset, 0), chunk.text.length);
     return {
       chunkIndex: chunk.index,
       chunkProgress: chunk.text.length > 0 ? clamp01(within / chunk.text.length) : 0,
+      characterInChunk: within,
     };
   }
 }

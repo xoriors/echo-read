@@ -10,6 +10,8 @@ export interface ReadingPreferences {
   fontSize: number;
   autoScroll: boolean;
   highlight: boolean;
+  /** Off by default: while on, a tap in the text jumps narration to that word. */
+  tapToSeek: boolean;
   sleepTimerMinutes: number;
 }
 
@@ -111,6 +113,11 @@ export function PlayerControls({
           checked={preferences.highlight}
           onChange={(highlight) => onPreferencesChange({ highlight })}
           label="Highlight Text"
+        />
+        <Checkbox
+          checked={preferences.tapToSeek}
+          onChange={(tapToSeek) => onPreferencesChange({ tapToSeek })}
+          label="Tap to Play From Word"
         />
         <LabelledSelect
           id="voice-select"

@@ -9,6 +9,8 @@ interface HighlightedTextProps {
   progress: number;
   highlight: boolean;
   fontSize: number;
+  /** While false the text is inert: taps select and scroll as usual. */
+  tapToSeek: boolean;
   onSeekToCharacter: (characterIndex: number) => void;
 }
 
@@ -33,30 +35,39 @@ interface PointerStart {
  * collides with double-tap-to-zoom and the selection handles.
  */
 export const HighlightedText = forwardRef<HTMLParagraphElement, HighlightedTextProps>(function HighlightedText(
-  { text, progress, highlight, fontSize, onSeekToCharacter },
+  { text, progress, highlight, fontSize, tapToSeek, onSeekToCharacter },
   ref,
 ) {
   const start = useRef<PointerStart | null>(null);
 
+  const seekHandlers = tapToSeek
+    ? {
+        onPointerDown: (event: React.PointerEvent<HTMLParagraphElement>) => {
+          start.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
+        },
+        onPointerCancel: () => {
+          start.current = null;
+        },
+        onPointerUp: (event: React.PointerEvent<HTMLParagraphElement>) => {
+          const from = start.current;
+          start.current = null;
+          if (!from || !isTap(event, from)) return;
+
+          const offset = characterOffsetAt(event.currentTarget, event.clientX, event.clientY);
+          if (offset !== null) onSeekToCharacter(wordStartAt(text, offset));
+        },
+      }
+    : {};
+
   return (
     <p
       ref={ref}
-      onPointerDown={(event) => {
-        start.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
-      }}
-      onPointerCancel={() => {
-        start.current = null;
-      }}
-      onPointerUp={(event) => {
-        const from = start.current;
-        start.current = null;
-        if (!from || !isTap(event, from)) return;
-
-        const offset = characterOffsetAt(event.currentTarget, event.clientX, event.clientY);
-        if (offset !== null) onSeekToCharacter(wordStartAt(text, offset));
-      }}
-      title="Tap any word to play from there"
-      className="text-gray-300 leading-relaxed whitespace-pre-wrap transition-all duration-200 cursor-pointer touch-manipulation"
+      {...seekHandlers}
+      title={tapToSeek ? 'Tap any word to play from there' : undefined}
+      className={
+        'text-gray-300 leading-relaxed whitespace-pre-wrap transition-all duration-200' +
+        (tapToSeek ? ' cursor-pointer touch-manipulation' : '')
+      }
       style={{ fontSize: `${fontSize}px` }}
     >
       {highlight ? <Highlighted text={text} progress={progress} /> : text}

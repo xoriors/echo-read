@@ -22,10 +22,18 @@ export interface NarrationSnapshot {
 
 export interface PlayTarget {
   chunkIndex: number;
-  /** Absolute offset into the chunk. Takes precedence over `chunkProgress`. */
+  /** Absolute offset into the clip. Takes precedence over `chunkProgress`. */
   offsetSeconds?: number;
-  /** Relative offset into the chunk, 0–1. */
+  /** Relative offset into the clip, 0–1. */
   chunkProgress?: number;
+  /**
+   * Speak the chunk from this character on, rather than from its start.
+   *
+   * Seeking by time can only ever estimate where a word falls, because speech
+   * is not evenly paced. Synthesising from the character instead makes the
+   * audio *begin* at that word, so landing on it is exact.
+   */
+  characterInChunk?: number;
 }
 
 export interface NarrationPlayerDeps {
@@ -66,6 +74,18 @@ export class NarrationPlayer {
   private readonly listeners = new Set<() => void>();
 
   private readonly clips = new Map<number, AudioClip>();
+  /**
+   * Character offset within the current chunk that `currentClip` starts at.
+   * Non-zero after a seek-to-word, and needed to keep progress honest: the
+   * clip then covers only the tail of the chunk.
+   */
+  private clipStartCharacter = 0;
+  /**
+   * The one partial clip worth keeping: the current seek-to-word. Holding it
+   * means pausing, resuming or scrubbing after a tap does not pay for the
+   * same synthesis again.
+   */
+  private partialClip: { chunkIndex: number; start: number; clip: AudioClip } | null = null;
   private readonly inFlight = new Map<number, Promise<AudioClip>>();
   private currentClip: AudioClip | null = null;
 
@@ -101,6 +121,8 @@ export class NarrationPlayer {
     this.clips.clear();
     this.inFlight.clear();
     this.currentClip = null;
+    this.partialClip = null;
+    this.clipStartCharacter = 0;
     this.narration = Narration.of(text);
 
     this.patch({
@@ -124,13 +146,15 @@ export class NarrationPlayer {
     this.clips.clear();
     this.inFlight.clear();
     this.currentClip = null;
+    this.partialClip = null;
+    this.clipStartCharacter = 0;
     this.narration = Narration.empty();
     this.patch({ ...IDLE_SNAPSHOT, voice: this.snapshot.voice, speed: this.snapshot.speed });
   }
 
   // --- transport ---------------------------------------------------------
 
-  async playFrom({ chunkIndex, offsetSeconds, chunkProgress }: PlayTarget): Promise<void> {
+  async playFrom({ chunkIndex, offsetSeconds, chunkProgress, characterInChunk }: PlayTarget): Promise<void> {
     if (!this.narration.hasChunk(chunkIndex)) {
       this.stop();
       return;
@@ -138,6 +162,7 @@ export class NarrationPlayer {
 
     const token = ++this.playToken;
     const generation = this.contentGeneration;
+    const startCharacter = characterInChunk ?? 0;
 
     this.deps.audio.stop();
     this.deps.ticker.stop();
@@ -146,7 +171,7 @@ export class NarrationPlayer {
 
     let clip: AudioClip;
     try {
-      clip = await this.clipFor(chunkIndex);
+      clip = await this.clipFor(chunkIndex, startCharacter);
     } catch (error) {
       if (this.isStale(token, generation)) return;
       this.fail(`Failed to load audio for part ${chunkIndex + 1}: ${messageOf(error)}`);
@@ -160,6 +185,7 @@ export class NarrationPlayer {
       clip.durationSeconds,
     );
 
+    this.clipStartCharacter = startCharacter;
     this.currentClip = clip;
     this.deps.audio.setPlaybackRate(this.snapshot.speed);
     this.deps.audio.play(clip, offset);
@@ -182,6 +208,7 @@ export class NarrationPlayer {
     await this.playFrom({
       chunkIndex: this.snapshot.chunkIndex,
       offsetSeconds: this.snapshot.positionSeconds,
+      characterInChunk: this.clipStartCharacter,
     });
   }
 
@@ -203,7 +230,11 @@ export class NarrationPlayer {
     const positionSeconds = clampSeconds(seconds, this.snapshot.durationSeconds);
 
     if (this.snapshot.state === PlaybackState.Playing) {
-      void this.playFrom({ chunkIndex: this.snapshot.chunkIndex, offsetSeconds: positionSeconds });
+      void this.playFrom({
+        chunkIndex: this.snapshot.chunkIndex,
+        offsetSeconds: positionSeconds,
+        characterInChunk: this.clipStartCharacter,
+      });
       return;
     }
 
@@ -222,7 +253,10 @@ export class NarrationPlayer {
   playFromCharacter(characterIndex: number): void {
     if (this.narration.isEmpty) return;
     const position: NarrationPosition = this.narration.locate(characterIndex);
-    void this.playFrom({ chunkIndex: position.chunkIndex, chunkProgress: position.chunkProgress });
+    void this.playFrom({
+      chunkIndex: position.chunkIndex,
+      characterInChunk: position.characterInChunk,
+    });
   }
 
   // --- settings ----------------------------------------------------------
@@ -235,12 +269,14 @@ export class NarrationPlayer {
     const resumeFrom: PlayTarget = {
       chunkIndex: this.snapshot.chunkIndex,
       offsetSeconds: this.snapshot.positionSeconds,
+      characterInChunk: this.clipStartCharacter,
     };
 
     this.haltPlayback();
     this.contentGeneration++;
     this.clips.clear();
     this.inFlight.clear();
+    this.partialClip = null;
     this.patch({ voice });
 
     if (!wasActive || this.narration.isEmpty) return;
@@ -272,30 +308,47 @@ export class NarrationPlayer {
     this.patch({ positionSeconds, documentProgress: this.progressAt(positionSeconds) });
   };
 
-  private clipFor(index: number): Promise<AudioClip> {
-    const cached = this.clips.get(index);
-    if (cached) return Promise.resolve(cached);
-
-    const pending = this.inFlight.get(index);
-    if (pending) return pending;
-
-    const generation = this.contentGeneration;
-    const voice = this.snapshot.voice;
+  /**
+   * Audio for a chunk, optionally starting partway through it.
+   *
+   * Only whole chunks are cached and shared. A partial clip belongs to one
+   * seek — caching every tapped position would grow without bound and would
+   * never be reused, since the next tap lands somewhere else.
+   */
+  private clipFor(index: number, fromCharacter = 0): Promise<AudioClip> {
     const chunk = this.narration.chunkAt(index);
     if (!chunk) return Promise.reject(new Error(`No chunk at index ${index}`));
 
+    const start = Math.min(Math.max(fromCharacter, 0), chunk.text.length);
+    const isWholeChunk = start === 0;
+
+    if (isWholeChunk) {
+      const cached = this.clips.get(index);
+      if (cached) return Promise.resolve(cached);
+
+      const pending = this.inFlight.get(index);
+      if (pending) return pending;
+    } else if (this.partialClip?.chunkIndex === index && this.partialClip.start === start) {
+      return Promise.resolve(this.partialClip.clip);
+    }
+
+    const generation = this.contentGeneration;
+    const voice = this.snapshot.voice;
+
     const request = this.deps.speech
-      .synthesize(chunk.text, voice)
+      .synthesize(chunk.text.slice(start), voice)
       .then((samples) => this.deps.audio.decode(samples))
       .then((clip) => {
-        if (generation === this.contentGeneration) this.clips.set(index, clip);
+        if (generation !== this.contentGeneration) return clip;
+        if (isWholeChunk) this.clips.set(index, clip);
+        else this.partialClip = { chunkIndex: index, start, clip };
         return clip;
       })
       .finally(() => {
-        this.inFlight.delete(index);
+        if (isWholeChunk) this.inFlight.delete(index);
       });
 
-    this.inFlight.set(index, request);
+    if (isWholeChunk) this.inFlight.set(index, request);
     return request;
   }
 
@@ -326,10 +379,18 @@ export class NarrationPlayer {
 
   private progressAt(positionSeconds: number): number {
     const duration = this.snapshot.durationSeconds;
-    return this.narration.progressAt({
-      chunkIndex: this.snapshot.chunkIndex,
-      chunkProgress: duration > 0 ? positionSeconds / duration : 0,
-    });
+    const throughClip = duration > 0 ? positionSeconds / duration : 0;
+
+    // After a seek-to-word the clip is only the tail of the chunk, so progress
+    // through the clip has to be rebased onto the whole chunk.
+    const chunk = this.narration.chunkAt(this.snapshot.chunkIndex);
+    const spokenLength = chunk ? chunk.text.length - this.clipStartCharacter : 0;
+    const chunkProgress =
+      chunk && chunk.text.length > 0
+        ? (this.clipStartCharacter + throughClip * spokenLength) / chunk.text.length
+        : throughClip;
+
+    return this.narration.progressAt({ chunkIndex: this.snapshot.chunkIndex, chunkProgress });
   }
 
   private patch(changes: Partial<NarrationSnapshot>): void {

@@ -15,6 +15,7 @@ interface DocumentPanelProps {
   readMode: ReadMode;
   progress: number;
   highlight: boolean;
+  tapToSeek: boolean;
   fontSize: number;
   shareableLink: string | null;
   linkCopied: boolean;
@@ -33,6 +34,7 @@ export function DocumentPanel({
   readMode,
   progress,
   highlight,
+  tapToSeek,
   fontSize,
   shareableLink,
   linkCopied,
@@ -72,7 +74,7 @@ export function DocumentPanel({
       </div>
 
       {/* `title` is hover-only, so touch users need the hint on the page. */}
-      <p className="text-sm text-gray-500 mb-3">Tap any word to play from there.</p>
+      {tapToSeek && <p className="text-sm text-gray-500 mb-3">Tap any word to play from there.</p>}
 
       <HighlightedText
         ref={textRef}
@@ -80,6 +82,7 @@ export function DocumentPanel({
         progress={progress}
         highlight={highlight}
         fontSize={fontSize}
+        tapToSeek={tapToSeek}
         onSeekToCharacter={onSeekToCharacter}
       />
 
