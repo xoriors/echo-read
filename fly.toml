@@ -11,6 +11,15 @@ primary_region = "iad"
 [env]
   NODE_ENV = "production"
   PORT = "3000"
+  DATA_DIR = "/data"
+
+# SQLite lives on this volume. A volume attaches to exactly one machine, which
+# is why the app is pinned to a single instance — see `flyctl scale count 1`.
+# The machine may stop when idle; the volume persists, which is the whole point
+# of it over in-memory state.
+[mounts]
+  source = "echoread_data"
+  destination = "/data"
 
 [http_service]
   internal_port = 3000
