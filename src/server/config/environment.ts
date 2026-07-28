@@ -5,6 +5,10 @@ export interface ServerConfig {
   isProduction: boolean;
   geminiApiKey?: string;
   browserlessApiKey?: string;
+  /** Preference order for text generation; empty means "use the built-in list". */
+  geminiTextModels: string[];
+  /** Preference order for speech; empty means "use the built-in list". */
+  geminiTtsModels: string[];
 }
 
 const DEFAULT_PORT = 3000;
@@ -29,6 +33,14 @@ function readSecret(env: NodeJS.ProcessEnv, name: string): string | undefined {
   return cleaned || undefined;
 }
 
+/** Comma-separated overrides, e.g. `GEMINI_TEXT_MODELS=gemini-2.5-pro,gemini-2.5-flash`. */
+function readModelList(env: NodeJS.ProcessEnv, name: string): string[] {
+  return (env[name] ?? '')
+    .split(',')
+    .map((model) => model.trim())
+    .filter(Boolean);
+}
+
 /** The only place the server reads its environment. */
 export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   if (env === process.env) loadDotEnvFile();
@@ -38,5 +50,7 @@ export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCo
     isProduction: env.NODE_ENV === 'production',
     geminiApiKey: readSecret(env, 'GEMINI_API_KEY'),
     browserlessApiKey: readSecret(env, 'BROWSERLESS_API_KEY'),
+    geminiTextModels: readModelList(env, 'GEMINI_TEXT_MODELS'),
+    geminiTtsModels: readModelList(env, 'GEMINI_TTS_MODELS'),
   };
 }

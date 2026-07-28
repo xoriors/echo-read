@@ -3,8 +3,8 @@ import { FallbackArticleFetcher } from '../adapters/outbound/article/fallbackArt
 import { HttpArticleFetcher } from '../adapters/outbound/article/httpArticleFetcher';
 import { JinaArticleFetcher } from '../adapters/outbound/article/jinaArticleFetcher';
 import { GeminiClientProvider } from '../adapters/outbound/gemini/geminiClient';
-import { GeminiContentAnalyzer } from '../adapters/outbound/gemini/geminiContentAnalyzer';
-import { GeminiSpeechSynthesizer } from '../adapters/outbound/gemini/geminiSpeechSynthesizer';
+import { DEFAULT_TEXT_MODELS, GeminiContentAnalyzer } from '../adapters/outbound/gemini/geminiContentAnalyzer';
+import { DEFAULT_TTS_MODELS, GeminiSpeechSynthesizer } from '../adapters/outbound/gemini/geminiSpeechSynthesizer';
 import { ConsoleLogger } from '../adapters/outbound/logging/consoleLogger';
 import type { Logger } from '../application/ports/logger';
 import { AnalyzeVideoUseCase } from '../application/usecases/analyzeVideo';
@@ -34,8 +34,19 @@ export function createServerContainer(config: ServerConfig): ServerContainer {
   const logger = new ConsoleLogger(config.isProduction ? 'info' : 'debug');
 
   const geminiClients = new GeminiClientProvider(config.geminiApiKey);
-  const analyzer = new GeminiContentAnalyzer(geminiClients);
-  const synthesizer = new GeminiSpeechSynthesizer(geminiClients);
+
+  // Each model list is tried in order, so an overloaded model is retried a few
+  // times and then abandoned for the next one.
+  const analyzer = new GeminiContentAnalyzer(
+    geminiClients,
+    logger,
+    config.geminiTextModels.length > 0 ? config.geminiTextModels : DEFAULT_TEXT_MODELS,
+  );
+  const synthesizer = new GeminiSpeechSynthesizer(
+    geminiClients,
+    logger,
+    config.geminiTtsModels.length > 0 ? config.geminiTtsModels : DEFAULT_TTS_MODELS,
+  );
 
   // Cheapest first: reader proxy, then a plain GET, then a real browser.
   const articleFetcher = new FallbackArticleFetcher(
