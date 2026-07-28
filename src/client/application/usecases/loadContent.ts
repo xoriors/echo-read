@@ -13,6 +13,15 @@ import type { ContentGateway } from '../ports/contentGateway';
 import type { PdfSource } from '../ports/pdfSource';
 import type { StatusChannel } from '../ports/statusChannel';
 
+/**
+ * The most text worth putting in a single summarisation request.
+ *
+ * Well inside the model's context window; the point is not the ceiling but
+ * avoiding one gigantic call for a document that should be summarised in
+ * batches. Roughly a 400-page book's worth of characters.
+ */
+const MAX_SINGLE_CALL_CHARACTERS = 200_000;
+
 export type LoadContentCommand =
   | { kind: 'url'; url: string; readMode: ReadMode }
   | { kind: 'text'; text: string; readMode: ReadMode }
@@ -87,11 +96,22 @@ export class LoadContentUseCase {
 
         const text = pagesToText(selected);
 
+        // Reading needs no model at all, so it has no size limit: this is the
+        // path where a whole book works.
         if (!isSummaryMode(command.readMode)) return { text, sources: [], pages: selected };
 
-        this.status.publish(`${READ_MODE_ACTION[command.readMode]} PDF...`);
-        const summary = await this.gateway.summarizeText(text, command.readMode);
-        return { ...summary, pages: singlePage(summary.text) };
+        // Summarising does need a model, and `summarizeText` sends the text in
+        // one request with no truncation anywhere behind it. A book's worth of
+        // characters would be a single enormous call, so anything past what one
+        // call should carry goes to the model as bytes instead — the same route
+        // this took before pages existed. Summarising an arbitrarily long
+        // document properly means map-reduce over `batchPages`, which is the
+        // next milestone; until then this must not silently get worse.
+        if (text.length <= MAX_SINGLE_CALL_CHARACTERS) {
+          this.status.publish(`${READ_MODE_ACTION[command.readMode]} PDF...`);
+          const summary = await this.gateway.summarizeText(text, command.readMode);
+          return { ...summary, pages: singlePage(summary.text) };
+        }
       }
     }
 

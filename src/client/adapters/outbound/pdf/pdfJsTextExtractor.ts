@@ -8,6 +8,9 @@ import type { DocumentPage } from '../../../../shared/domain/page';
  * downloads it. The import is memoised because a second document should not
  * pay for the module again.
  *
+ * The buffer passed in is consumed: pdf.js detaches it. Callers must not
+ * reuse it afterwards.
+ *
  * This recovers only a real text layer. Scanned PDFs are images and yield
  * nothing here — {@link hasTextLayer} is how callers detect that and fall back
  * to sending the bytes to the model, which can read them visually.
@@ -43,10 +46,12 @@ interface TextItemLike {
 export async function extractPages(data: ArrayBuffer): Promise<DocumentPage[]> {
   const pdfjs = await loadPdfJs();
 
-  // pdf.js takes ownership of the buffer it is given, so hand it a copy: the
-  // caller may still need the original bytes for the scanned-PDF fallback.
-  // Teardown is on the loading task — that is what owns the worker.
-  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(data.slice(0)) });
+  // pdf.js takes ownership of this buffer and detaches it. Callers pass a
+  // buffer they do not reuse — the scanned-PDF fallback re-reads the original
+  // Blob rather than these bytes — so copying it here would just hold a large
+  // document in memory twice.
+  // Teardown is on the loading task: that is what owns the worker.
+  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(data) });
   const document = await loadingTask.promise;
 
   try {

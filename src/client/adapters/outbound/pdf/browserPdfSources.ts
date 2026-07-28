@@ -46,11 +46,25 @@ export class RemotePdfSource implements PdfSource {
   }
 
   async readPages(): Promise<DocumentPage[]> {
-    return extractPagesOf(await this.blob());
+    try {
+      return await extractPagesOf(await this.blob());
+    } catch {
+      // The download failed. Report nothing rather than throwing, so the
+      // caller falls through to the bytes path — which raises the same
+      // failure with a message written for a reader.
+      return [];
+    }
   }
 
   private blob(): Promise<Blob> {
-    this.downloaded ??= this.download();
+    // Memoised so asking for pages and then bytes downloads once — but a
+    // rejection is cleared, otherwise one transient network failure would
+    // poison this source for the rest of its life.
+    this.downloaded ??= this.download().catch((error: unknown) => {
+      this.downloaded = null;
+      throw error;
+    });
+
     return this.downloaded;
   }
 
