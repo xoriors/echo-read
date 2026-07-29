@@ -302,6 +302,8 @@ export default function App(): React.JSX.Element {
             // Speaks through its own output rather than the narration player,
             // so hearing a card cannot discard the document being read.
             onSpeakCard={(front, back) => void cardSpeaker.speakCard(front, back)}
+            onSpeakQuestion={(stem, options) => void cardSpeaker.speakQuestion(stem, options)}
+            onSpeakAnswer={(answer, rationale) => void cardSpeaker.speakAnswer(answer, rationale)}
             dueCards={dueCards}
           />
         )}

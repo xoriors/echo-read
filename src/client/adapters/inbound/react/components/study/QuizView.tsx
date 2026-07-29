@@ -5,6 +5,10 @@ import { gradeQuizAttempt, quizScore, type QuizAttempt } from '../../../../../do
 
 interface QuizViewProps {
   items: readonly (QuizItem & { id: string })[];
+  /** Speaks the stem and its options, and stops before the answer. */
+  onSpeakQuestion: (stem: string, options: readonly string[]) => void;
+  /** Speaks the answer. Offered only once an attempt has been made. */
+  onSpeakAnswer: (answer: string, rationale?: string) => void;
 }
 
 /**
@@ -15,7 +19,7 @@ interface QuizViewProps {
  * something to read; offered after one, it is feedback on a guess the reader
  * has already committed to, which is where the benefit lives.
  */
-export function QuizView({ items }: QuizViewProps): React.JSX.Element {
+export function QuizView({ items, onSpeakQuestion, onSpeakAnswer }: QuizViewProps): React.JSX.Element {
   const [index, setIndex] = useState(0);
   const [attempt, setAttempt] = useState<QuizAttempt | null>(null);
   const [history, setHistory] = useState<QuizAttempt[]>([]);
@@ -85,16 +89,35 @@ export function QuizView({ items }: QuizViewProps): React.JSX.Element {
         )}
       </div>
 
-      {attempt && (
-        <div className="mt-4 text-center">
+      <div className="mt-4 flex flex-wrap gap-2 justify-center">
+        {/* Before an attempt only the question can be heard; the answer button
+            does not exist yet, so there is nothing to mis-click. */}
+        {!attempt ? (
           <button
-            onClick={next}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+            onClick={() => onSpeakQuestion(item.stem, item.options)}
+            className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+            title="Reads the question and the options, and stops there"
           >
-            Next Question
+            Listen
           </button>
-        </div>
-      )}
+        ) : (
+          <>
+            <button
+              onClick={() => onSpeakAnswer(item.options[item.answerIndex], item.rationale)}
+              className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+              title="Reads the answer and why"
+            >
+              Listen to Answer
+            </button>
+            <button
+              onClick={next}
+              className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+            >
+              Next Question
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

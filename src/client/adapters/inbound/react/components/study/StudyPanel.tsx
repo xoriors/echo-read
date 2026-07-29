@@ -16,6 +16,10 @@ interface StudyPanelProps {
   onGrade: (cardId: string, rating: Rating) => void;
   /** Reads a card aloud: question, a pause to recall in, then the answer. */
   onSpeakCard: (front: string, back: string) => void;
+  /** Reads a question and its options, stopping before the answer. */
+  onSpeakQuestion: (stem: string, options: readonly string[]) => void;
+  /** Reads the answer. Offered only after an attempt. */
+  onSpeakAnswer: (answer: string, rationale?: string) => void;
   /** Cards due across every document, not just this one. */
   dueCards: readonly ScheduledCardResponse[];
 }
@@ -38,6 +42,8 @@ export function StudyPanel({
   onGenerate,
   onGrade,
   onSpeakCard,
+  onSpeakQuestion,
+  onSpeakAnswer,
   dueCards,
 }: StudyPanelProps): React.JSX.Element {
   const [tab, setTab] = useState<Tab>('cards');
@@ -72,7 +78,7 @@ export function StudyPanel({
   }
 
   const exportDeck = (): void =>
-    downloadTextFile(ANKI_FILE_NAME, toAnkiTsv(pack.flashcards));
+    downloadTextFile(ANKI_FILE_NAME, toAnkiTsv(pack.flashcards, pack.quizItems));
 
   return (
     <div className="bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-2xl mb-8">
@@ -138,7 +144,11 @@ export function StudyPanel({
           onSpeakCard={onSpeakCard}
         />
       ) : (
-        <QuizView items={pack.quizItems} />
+        <QuizView
+          items={pack.quizItems}
+          onSpeakQuestion={onSpeakQuestion}
+          onSpeakAnswer={onSpeakAnswer}
+        />
       )}
 
       {pack.selfExplanationPrompts.length > 0 && (

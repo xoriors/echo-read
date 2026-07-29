@@ -33,22 +33,68 @@ export class CardSpeaker {
     return this.speaking;
   }
 
+  /**
+   * Speaks a question and its options, and stops there.
+   *
+   * Deliberately does not continue to the answer. On screen a revealed answer
+   * can be ignored; spoken, it cannot be unheard, so the hidden-until-attempted
+   * rule has to be enforced harder in audio, not more loosely.
+   *
+   * Runs without the recall pause: the options are part of the question, not
+   * something to recall, so silence between them is dead air rather than
+   * thinking time. The pause that matters comes before the answer — and that
+   * is a separate button press, which is a longer gap than any timer.
+   */
+  async speakQuestion(stem: string, options: readonly string[]): Promise<void> {
+    const lettered = options
+      .map((option, index) => `${String.fromCharCode(65 + index)}. ${option}`)
+      .join('. ');
+
+    await this.speakSequence('Reading the question...', [stem, lettered], { pauseBetween: false });
+  }
+
+  /** Speaks the answer. Called only once an attempt has been made. */
+  async speakAnswer(answer: string, rationale?: string): Promise<void> {
+    const parts = [`The answer is: ${answer}`];
+    if (rationale) parts.push(rationale);
+
+    await this.speakSequence('Reading the answer...', parts, { pauseBetween: false });
+  }
+
   /** Speaks the question, pauses, then the answer. Any earlier card is cut off. */
   async speakCard(front: string, back: string): Promise<void> {
+    await this.speakSequence('Reading the card...', [front, back]);
+  }
+
+  /**
+   * Speaks each part in turn, cutting off anything already speaking.
+   *
+   * The pause between parts is what turns hearing into retrieval: it is the
+   * gap a listener answers in, and it is what makes a deck usable while
+   * walking, which is the thing a screen-bound study tool cannot offer.
+   */
+  private async speakSequence(
+    status: string,
+    parts: readonly string[],
+    { pauseBetween = true }: { pauseBetween?: boolean } = {},
+  ): Promise<void> {
     const mine = ++this.token;
     this.speaking = true;
     this.audio.stop();
 
     try {
-      this.status.publish('Reading the card...');
-      if (!(await this.play(front, mine))) return;
+      this.status.publish(status);
 
-      await this.wait(RECALL_PAUSE_SECONDS * 1_000);
-      if (this.token !== mine) return;
+      for (const [index, part] of parts.entries()) {
+        if (index > 0 && pauseBetween) {
+          await this.wait(RECALL_PAUSE_SECONDS * 1_000);
+          if (this.token !== mine) return;
+        }
 
-      await this.play(back, mine);
+        if (!(await this.play(part, mine))) return;
+      }
     } catch {
-      this.status.publish('Could not read that card aloud.');
+      this.status.publish('Could not read that aloud.');
     } finally {
       if (this.token === mine) {
         this.speaking = false;

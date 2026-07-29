@@ -52,8 +52,44 @@ export interface ExportableCard {
   sourcePage?: number;
 }
 
-export function toAnkiTsv(cards: readonly ExportableCard[]): string {
-  return cards
+/** Letters an option, as a paper quiz would. */
+export function optionLabel(index: number): string {
+  return String.fromCharCode(65 + index);
+}
+
+/**
+ * Turns a multiple-choice item into a two-sided card.
+ *
+ * Anki's Basic note is front and back, so the options belong on the front —
+ * an exported question without them is unanswerable, which is how they would
+ * be lost if only the stem were exported.
+ */
+export function quizToCard(item: QuizItem): ExportableCard {
+  const options = item.options
+    .map((option, index) => `${optionLabel(index)}) ${option}`)
+    .join('\n');
+
+  const answer = `${optionLabel(item.answerIndex)}) ${item.options[item.answerIndex] ?? ''}`;
+
+  return {
+    front: `${item.stem}\n\n${options}`,
+    back: item.rationale ? `${answer}\n\n${item.rationale}` : answer,
+    sourcePage: item.sourcePage,
+  };
+}
+
+/**
+ * The whole pack as one Anki-importable file.
+ *
+ * Questions are included as well as flashcards: decks live on the server, so
+ * this is the only way work leaves the device, and exporting half of it
+ * silently would be worse than not offering it.
+ */
+export function toAnkiTsv(
+  cards: readonly ExportableCard[],
+  quizItems: readonly QuizItem[] = [],
+): string {
+  return [...cards, ...quizItems.map(quizToCard)]
     .map((card) => {
       const back = card.sourcePage ? `${card.back} (p. ${card.sourcePage})` : card.back;
       return `${escapeField(card.front)}\t${escapeField(back)}`;
