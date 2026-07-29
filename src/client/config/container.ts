@@ -6,7 +6,7 @@ import { HttpSpeechGateway } from '../adapters/outbound/http/httpSpeechGateway';
 import { HttpStudyGateway } from '../adapters/outbound/http/httpStudyGateway';
 import { DEFAULT_VOICE, NARRATION_VOICES } from '../../shared/domain/voice';
 import { BroadcastStatusChannel } from '../adapters/outbound/status/broadcastStatusChannel';
-import { InMemoryLibraryRepository } from '../adapters/outbound/storage/inMemoryLibraryRepository';
+import { LocalStorageLibraryRepository } from '../adapters/outbound/storage/localStorageLibraryRepository';
 import { CardSpeaker } from '../application/cardSpeaker';
 import { NarrationPlayer } from '../application/narrationPlayer';
 import type { StatusChannel } from '../application/ports/statusChannel';
@@ -53,7 +53,7 @@ export function createAppContainer(): AppContainer {
     study: new ManageStudyUseCase(new HttpStudyGateway(api), status),
     cardSpeaker: new CardSpeaker(speech, cardAudio, status, DEFAULT_VOICE),
     player,
-    library: new LibraryService(new InMemoryLibraryRepository()),
+    library: new LibraryService(new LocalStorageLibraryRepository()),
     status,
     voices: NARRATION_VOICES,
   };

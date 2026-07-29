@@ -107,6 +107,23 @@ check(text.includes('Explain (1)'), 'with its explanation tab');
 check(await page.locator('input[type="range"]').count() === 0, 'and still no transport under the deck');
 check(speechCalls === 0, `still nothing narrated (${speechCalls} speech calls)`);
 
+// --- History survives a reload ---------------------------------------------
+// It used to last as long as the tab, which made the drawer useless for the
+// one thing it exists for: getting back to a document without pasting it in
+// again.
+await page.locator('header button, button[title*="ibrary"], button[aria-label*="ibrary"]').first().click();
+await page.waitForTimeout(300);
+check((await page.locator('body').innerText()).includes('Pasted'), 'the document is in history');
+
+await page.reload();
+await page.waitForTimeout(800);
+await page.locator('header button, button[title*="ibrary"], button[aria-label*="ibrary"]').first().click();
+await page.waitForTimeout(300);
+
+const afterReload = await page.locator('body').innerText();
+check(!afterReload.includes('No recent content found.'), 'history is not empty after a reload');
+check(afterReload.includes('Pasted'), 'the entry is still there, so the document can be reopened');
+
 console.log(failures.length === 0 ? '\nDONE all passed' : `\nDONE ${failures.length} failed`);
 await browser.close();
 process.exit(failures.length === 0 ? 0 : 1);

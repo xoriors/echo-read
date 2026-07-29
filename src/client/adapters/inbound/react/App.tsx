@@ -25,6 +25,7 @@ import { DocumentPanel } from './components/DocumentPanel';
 import { LibraryDrawer } from './components/LibraryDrawer';
 import { PlayerControls, type ReadingPreferences } from './components/PlayerControls';
 import { SourcePanel } from './components/sources/SourcePanel';
+import { DuePanel } from './components/study/DuePanel';
 import { StudyPanel } from './components/study/StudyPanel';
 import { StatusBanner } from './components/StatusBanner';
 import { useContainer } from './ContainerContext';
@@ -270,11 +271,16 @@ export default function App(): React.JSX.Element {
     }
   }, [study]);
 
-  // Spacing only pays off across sessions, so what is due is asked for when
-  // the Learning tab opens rather than only after generating something.
+  // Asked for on arrival, not when a document is opened.
+  //
+  // Spacing only pays off across sessions, and the schedule used to be
+  // invisible until a reader pasted the original document back in and chose
+  // Learn — so their own decks were unreachable without first reproducing the
+  // thing the decks came from. The queue is the reason to return, so it has to
+  // be there before there is anything to return *to*.
   useEffect(() => {
-    if (openDocument?.learning) void refreshDueCards();
-  }, [openDocument?.learning, refreshDueCards]);
+    void refreshDueCards();
+  }, [refreshDueCards]);
 
   const handleGrade = useCallback(
     (cardId: string, rating: number) => {
@@ -309,6 +315,17 @@ export default function App(): React.JSX.Element {
         />
 
         <StatusBanner status={status} error={error ?? narration.error} busy={isBusy} />
+
+        {/* Only when nothing is open: a reader who has just fetched something
+            came here to read it, and the study panel carries its own due
+            banner for anyone already in Learn. */}
+        {!openDocument && !isFetching && (
+          <DuePanel
+            cards={dueCards}
+            onGrade={handleGrade}
+            onSpeakCard={(front, back) => void cardSpeaker.speakCard(front, back)}
+          />
+        )}
 
         {openDocument?.learning && (
           <StudyPanel
