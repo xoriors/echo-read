@@ -26,6 +26,9 @@ check(text.includes('Questions (1)'), 'the question tab is counted');
 check(text.includes('Explain (1)'), 'explanation prompts are a tab of their own now');
 check(text.includes('Before you read, look for:'), 'pre-questions stay above the deck, where they belong');
 check(text.includes('3 items discarded'), 'the pack discloses what it threw away');
+check(text.includes('2 sections'), 'and warns that part of the document could not be generated');
+check(text.includes('incomplete'), 'in plain terms — a deck with a hole is not a finished deck');
+check(await page.locator('button', { hasText: 'Try those again' }).count() === 1, 'with a way to retry');
 check(text.includes('test-model'), 'and which model wrote it');
 
 // The old shape: a bulleted list under the deck with nowhere to write.

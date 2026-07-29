@@ -58,10 +58,10 @@ export function studyRouter({
       const sourceHash = hashOf(pages);
       const existing = await studyRepository.findPackBySource(ownerId, sourceHash);
       if (existing) {
-        return respondWith(response, existing, { rejected: 0, reused: true });
+        return respondWith(response, existing, { rejected: 0, failedSections: 0, reused: true });
       }
 
-      const { pack, rejected } = await buildStudyPack.execute({
+      const { pack, rejected, failedBatches } = await buildStudyPack.execute({
         pages,
         model: DEFAULT_TEXT_MODEL,
       });
@@ -78,7 +78,11 @@ export function studyRouter({
       // Everything comes from what was stored, not from what was generated:
       // only the stored rows carry the ids a review is graded by and an
       // explanation is answered against.
-      return respondWith(response, stored, { rejected, reused: false });
+      return respondWith(response, stored, {
+        rejected,
+        failedSections: failedBatches,
+        reused: false,
+      });
     }),
   );
 
@@ -183,7 +187,7 @@ const FAR_FUTURE = '9999-12-31T00:00:00.000Z';
 function respondWith(
   response: Parameters<Parameters<typeof route>[0]>[1],
   stored: StoredStudyPack,
-  { rejected, reused }: { rejected: number; reused: boolean },
+  { rejected, failedSections, reused }: { rejected: number; failedSections: number; reused: boolean },
 ): void {
   response.json({
     packId: stored.packId,
@@ -195,6 +199,7 @@ function respondWith(
     preQuestions: stored.preQuestions,
     selfExplanationPrompts: stored.selfExplanationPrompts,
     rejected,
+    failedSections,
     reused,
   } satisfies StudyPackResponse);
 }

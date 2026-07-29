@@ -167,6 +167,24 @@ export function StudyPanel({
         <SelfExplanation prompts={pack.selfExplanationPrompts} onCheck={onCheckExplanation} />
       )}
 
+      {/* A deck with a hole in it must say so. Silence here reads as "this is
+          all your document had in it", which is a different and much worse
+          claim than "part of it could not be generated". */}
+      {pack.failedSections > 0 && (
+        <div className="mt-6 p-3 bg-amber-900/30 border border-amber-700 rounded-lg">
+          <p className="text-amber-200">
+            {pack.failedSections} section{pack.failedSections === 1 ? '' : 's'} of this document
+            could not be generated, so the deck is incomplete.
+          </p>
+          <button
+            onClick={onGenerate}
+            className="mt-2 text-amber-200 underline hover:text-amber-100"
+          >
+            Try those again
+          </button>
+        </div>
+      )}
+
       {/* Required from 2 August 2026 by the EU AI Act, and honest regardless:
           these items were written by a model, from the reader's document. */}
       <p className="mt-6 text-xs text-gray-500">

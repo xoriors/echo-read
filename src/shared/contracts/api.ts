@@ -102,6 +102,13 @@ export interface StudyPackResponse {
   selfExplanationPrompts: SelfExplanationPromptResponse[];
   /** Items the model produced that failed verification and were discarded. */
   rejected: number;
+  /**
+   * Sections of the document that could not be generated at all — a quota
+   * exhausted part-way, say. Distinct from `rejected`: those are items that
+   * were written and thrown away, this is material never covered. A reader
+   * needs to know their deck has a hole in it.
+   */
+  failedSections: number;
   /** True when an existing pack was returned rather than generated again. */
   reused: boolean;
 }

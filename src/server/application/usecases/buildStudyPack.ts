@@ -1,4 +1,4 @@
-import { ValidationError } from '../../../shared/domain/errors';
+import { messageOf, UpstreamError, ValidationError } from '../../../shared/domain/errors';
 import { quoteOccursOnPage, type DocumentPage } from '../../../shared/domain/page';
 import {
   batchPages,
@@ -48,6 +48,14 @@ export interface StudyPackResult {
   estimate: GenerationEstimate;
   /** Items the model produced that failed verification and were discarded. */
   rejected: number;
+  /**
+   * Sections of the document that could not be generated at all.
+   *
+   * Distinct from `rejected`: those are items the model wrote and we threw
+   * away, this is material the model never got to. A reader deciding whether
+   * their deck covers the document needs to know the difference.
+   */
+  failedBatches: number;
 }
 
 /**
@@ -82,6 +90,17 @@ export class BuildStudyPackUseCase {
 
     const results = await this.runBatches(batches, pages);
 
+    // Every section failed, so there is nothing to show and nothing partial to
+    // salvage. Returning an empty pack here would present a total failure as a
+    // finished deck — the reader sees "no flashcards in this pack" beside a
+    // notice saying it was generated, and has no idea their quota ran out.
+    const failedBatches = results.filter((result) => result.failed).length;
+    if (failedBatches === results.length && results.length > 0) {
+      throw new UpstreamError(
+        `Could not generate a study pack: ${results[results.length - 1].reason ?? 'the model did not respond'}`,
+      );
+    }
+
     const rejected = results.reduce((total, result) => total + result.rejected, 0);
     const pack: StudyPack = {
       ...emptyStudyPack(model),
@@ -103,9 +122,10 @@ export class BuildStudyPackUseCase {
       flashcards: pack.flashcards.length,
       quizItems: pack.quizItems.length,
       rejected,
+      failedBatches,
     });
 
-    return { pack, estimate, rejected };
+    return { pack, estimate, rejected, failedBatches };
   }
 
   /** Runs batches a few at a time, in order, tolerating individual failures. */
@@ -128,6 +148,10 @@ export class BuildStudyPackUseCase {
    * One batch. A failure here yields nothing rather than propagating: losing a
    * chapter's cards is a worse outcome than a smaller deck, but it is a far
    * better one than losing the whole book to a single overloaded call.
+   *
+   * It is recorded rather than merely logged, though. Swallowing the failure
+   * silently is right for one batch out of twenty and badly wrong for one out
+   * of one — the caller needs to tell a thin deck from a failed generation.
    */
   private async runBatch(batch: PageBatch, pages: readonly DocumentPage[]): Promise<BatchOutcome> {
     try {
@@ -142,12 +166,15 @@ export class BuildStudyPackUseCase {
 
       return verifyBatch(parseBatch(text), batch, pages);
     } catch (error) {
+      const reason = messageOf(error);
+
       this.logger.warn('Batch failed; continuing without it', {
         batch: batch.index,
         pages: `${batch.firstPage}-${batch.lastPage}`,
-        reason: (error as Error).message,
+        reason,
       });
-      return emptyOutcome();
+
+      return { ...emptyOutcome(), failed: true, reason };
     }
   }
 }
@@ -158,6 +185,10 @@ interface BatchOutcome {
   quizItems: QuizItem[];
   selfExplanationPrompts: SelfExplanationPrompt[];
   rejected: number;
+  /** The call never returned usable output — as opposed to returning none. */
+  failed: boolean;
+  /** Why, kept so the reader can be told rather than just the log. */
+  reason?: string;
 }
 
 const emptyOutcome = (): BatchOutcome => ({
@@ -166,6 +197,7 @@ const emptyOutcome = (): BatchOutcome => ({
   quizItems: [],
   selfExplanationPrompts: [],
   rejected: 0,
+  failed: false,
 });
 
 /** The model answers against a schema, but a truncated response is still possible. */

@@ -62,6 +62,7 @@ await page.route('**/api/study-pack', async (route) =>
       preQuestions: [{ question: 'What makes practice effective?' }],
       selfExplanationPrompts: [{ id: 'e1', prompt: 'Explain spacing in your own words.', sourcePage: 1 }],
       rejected: 0,
+      failedSections: 0,
       reused: false,
     }),
   }),
