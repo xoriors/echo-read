@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
+import { ConfigurationError } from '../../shared/domain/errors';
+
 export interface ServerConfig {
   port: number;
   isProduction: boolean;
@@ -49,6 +51,39 @@ function readModelList(env: NodeJS.ProcessEnv, name: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * The key the owner cookie is signed with.
+ *
+ * Generating one when it is unset is fine locally and silently destroys data
+ * in production: the cookie *is* the identity, so a new key means every
+ * returning visitor fails signature verification, is issued a fresh owner id,
+ * and finds their decks gone. The rows survive in the database, orphaned under
+ * an owner nobody holds a cookie for — which looks exactly like data loss and
+ * cannot be undone from the outside.
+ *
+ * That is not hypothetical: this app scales to zero, so the machine restarts
+ * whenever it has been idle, and a generated key meant decks lasted until the
+ * next quiet spell. Refusing to boot is the only safe answer — a warning in a
+ * log nobody reads is how it went unnoticed in the first place.
+ */
+function sessionSecretFrom(env: NodeJS.ProcessEnv): string {
+  const configured = readSecret(env, 'SESSION_SECRET');
+  if (configured) return configured;
+
+  if (env.NODE_ENV === 'production') {
+    throw new ConfigurationError(
+      'SESSION_SECRET must be set in production. Without it the owner cookie is ' +
+        'signed with a key that changes on every restart, and every visitor ' +
+        'silently loses the decks they have built. Generate one with ' +
+        '`openssl rand -hex 32` and set it (e.g. `fly secrets set SESSION_SECRET=…`).',
+    );
+  }
+
+  // Local development: a fresh identity each restart is a mild annoyance, not
+  // data loss, and it keeps `npm run dev` working with no setup.
+  return randomUUID();
+}
+
 /** The only place the server reads its environment. */
 export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   if (env === process.env) loadDotEnvFile();
@@ -59,7 +94,7 @@ export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCo
     geminiApiKey: readSecret(env, 'GEMINI_API_KEY'),
     browserlessApiKey: readSecret(env, 'BROWSERLESS_API_KEY'),
     dataDir: readSecret(env, 'DATA_DIR') ?? (env.NODE_ENV === 'production' ? '/data' : '.data'),
-    sessionSecret: readSecret(env, 'SESSION_SECRET') ?? randomUUID(),
+    sessionSecret: sessionSecretFrom(env),
     geminiTextModels: readModelList(env, 'GEMINI_TEXT_MODELS'),
     geminiTtsModels: readModelList(env, 'GEMINI_TTS_MODELS'),
   };
