@@ -177,12 +177,22 @@ export default function App(): React.JSX.Element {
 
       setIsFetching(false);
 
-      // Learning is not listening: the document is still loaded so the
-      // transport works if the reader wants it, but it does not start speaking
-      // over someone who asked for flashcards.
+      // Learning is not listening. The document is not handed to the narration
+      // player at all: nothing in the study panel plays it — cards and
+      // questions speak through their own output — so loading it would only
+      // put a transport for the whole document under a deck, offering to read
+      // aloud the very text the reader asked to be quizzed on instead.
+      //
+      // `reset` rather than a skipped call, because a document read a moment
+      // ago would otherwise leave its player sitting there.
       const learning = isLearnMode(controller.form.readMode);
       setStatus(learning ? '' : 'Generating audio...');
-      await player.load(loaded.text, { autoplay: !learning });
+
+      if (learning) {
+        player.reset();
+      } else {
+        await player.load(loaded.text);
+      }
     } catch (caught) {
       fail(messageOf(caught));
     }
