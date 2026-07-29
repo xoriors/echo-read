@@ -1,6 +1,10 @@
 import React from 'react';
 
-import { READ_MODES, READ_MODE_LABEL, type ReadMode } from '../../../../../shared/domain/readMode';
+import {
+  DOCUMENT_MODES,
+  DOCUMENT_MODE_LABEL,
+  type DocumentMode,
+} from '../../../../domain/documentMode';
 import { SegmentedButton } from './controls';
 
 export function ReadModeSelector({
@@ -8,21 +12,21 @@ export function ReadModeSelector({
   onChange,
   disabled,
 }: {
-  readMode: ReadMode;
-  onChange: (mode: ReadMode) => void;
+  readMode: DocumentMode;
+  onChange: (mode: DocumentMode) => void;
   disabled: boolean;
 }): React.JSX.Element {
   return (
-    <div className="flex items-center justify-center space-x-2 p-1 bg-gray-700 rounded-lg">
-      {READ_MODES.map((mode) => (
+    <div className="flex flex-wrap items-center justify-center gap-2 p-1 bg-gray-700 rounded-lg">
+      {DOCUMENT_MODES.map((mode) => (
         <SegmentedButton
           key={mode}
           selected={readMode === mode}
           onClick={() => onChange(mode)}
           disabled={disabled}
-          className="w-32"
+          className="w-28"
         >
-          {READ_MODE_LABEL[mode]}
+          {DOCUMENT_MODE_LABEL[mode]}
         </SegmentedButton>
       ))}
     </div>

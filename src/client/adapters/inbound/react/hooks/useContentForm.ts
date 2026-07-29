@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import type { SourceKind } from '../../../../../shared/domain/contentSource';
-import type { ReadMode } from '../../../../../shared/domain/readMode';
+import type { DocumentMode } from '../../../../domain/documentMode';
 import {
   EMPTY_CONTENT_FORM,
   EMPTY_PDF_FORM,
@@ -14,7 +14,7 @@ export interface ContentFormController {
   /** The picked file, kept outside the form because it is not serialisable. */
   pdfFile: File | null;
   setKind(kind: SourceKind): void;
-  setReadMode(readMode: ReadMode): void;
+  setReadMode(readMode: DocumentMode): void;
   setUrl(url: string): void;
   setPastedText(text: string): void;
   updatePdf(changes: Partial<PdfForm>): void;
@@ -60,7 +60,7 @@ export function useContentForm(): ContentFormController {
     form,
     pdfFile,
     setKind: useCallback((kind: SourceKind) => patch({ kind }), [patch]),
-    setReadMode: useCallback((readMode: ReadMode) => patch({ readMode }), [patch]),
+    setReadMode: useCallback((readMode: DocumentMode) => patch({ readMode }), [patch]),
     setUrl: useCallback((url: string) => patch({ url }), [patch]),
     setPastedText: useCallback((pastedText: string) => patch({ pastedText }), [patch]),
     updatePdf,

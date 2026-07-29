@@ -17,6 +17,7 @@ import {
   validateContentForm,
   type ContentForm,
 } from '../../../domain/contentForm';
+import { isLearnMode, readModeFor } from '../../../domain/documentMode';
 import { LocalFilePdfSource, RemotePdfSource } from '../../outbound/pdf/browserPdfSources';
 import { copyToClipboard, downloadTextFile } from '../../outbound/browser/browserApis';
 import { AppHeader } from './components/AppHeader';
@@ -41,6 +42,8 @@ const COPIED_FEEDBACK_MS = 2_000;
 interface OpenDocument {
   kind: SourceKind;
   readMode: ReadMode;
+  /** Chosen as "Learn" rather than a read mode, so the study panel opens. */
+  learning: boolean;
   title: string;
   text: string;
   /** What the study pack cites. One page for sources that have no real pages. */
@@ -78,7 +81,6 @@ export default function App(): React.JSX.Element {
   const [isFetching, setIsFetching] = useState(false);
   const [isLibraryOpen, setLibraryOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
-  const [isLearning, setLearning] = useState(false);
   const [studyPack, setStudyPack] = useState<StudyPackResponse | null>(null);
   const [isGeneratingPack, setGeneratingPack] = useState(false);
   const [dueCards, setDueCards] = useState<ScheduledCardResponse[]>([]);
@@ -159,10 +161,10 @@ export default function App(): React.JSX.Element {
       });
 
       setStudyPack(null);
-      setLearning(false);
       setOpenDocument({
         kind: entry.kind,
-        readMode: controller.form.readMode,
+        readMode: readModeFor(controller.form.readMode),
+        learning: isLearnMode(controller.form.readMode),
         title: entry.title,
         text: loaded.text,
         pages: loaded.pages,
@@ -174,8 +176,13 @@ export default function App(): React.JSX.Element {
       });
 
       setIsFetching(false);
-      setStatus('Generating audio...');
-      await player.load(loaded.text);
+
+      // Learning is not listening: the document is still loaded so the
+      // transport works if the reader wants it, but it does not start speaking
+      // over someone who asked for flashcards.
+      const learning = isLearnMode(controller.form.readMode);
+      setStatus(learning ? '' : 'Generating audio...');
+      await player.load(loaded.text, { autoplay: !learning });
     } catch (caught) {
       fail(messageOf(caught));
     }
@@ -186,10 +193,11 @@ export default function App(): React.JSX.Element {
       setLibraryOpen(false);
       setError(null);
       setStudyPack(null);
-      setLearning(false);
       setOpenDocument({
         kind: entry.kind,
         readMode: 'full',
+        // Opening from history resumes reading; Learn is chosen per request.
+        learning: false,
         title: entry.title,
         text: entry.text,
         // A library entry keeps its text, not its pages, so citations fall
@@ -255,8 +263,8 @@ export default function App(): React.JSX.Element {
   // Spacing only pays off across sessions, so what is due is asked for when
   // the Learning tab opens rather than only after generating something.
   useEffect(() => {
-    if (isLearning) void refreshDueCards();
-  }, [isLearning, refreshDueCards]);
+    if (openDocument?.learning) void refreshDueCards();
+  }, [openDocument?.learning, refreshDueCards]);
 
   const handleGrade = useCallback(
     (cardId: string, rating: number) => {
@@ -285,18 +293,7 @@ export default function App(): React.JSX.Element {
 
         <StatusBanner status={status} error={error ?? narration.error} busy={isBusy} />
 
-        {openDocument && (
-          <div className="flex gap-2 mb-4">
-            <ModeButton active={!isLearning} onClick={() => setLearning(false)}>
-              Read
-            </ModeButton>
-            <ModeButton active={isLearning} onClick={() => setLearning(true)}>
-              Learn
-            </ModeButton>
-          </div>
-        )}
-
-        {openDocument && isLearning && (
+        {openDocument?.learning && (
           <StudyPanel
             pack={studyPack}
             isGenerating={isGeneratingPack}
@@ -309,7 +306,7 @@ export default function App(): React.JSX.Element {
           />
         )}
 
-        {openDocument && !isLearning && (
+        {openDocument && !openDocument.learning && (
           <DocumentPanel
             text={openDocument.text}
             sources={openDocument.sources}
@@ -363,16 +360,16 @@ export default function App(): React.JSX.Element {
 function commandFor(form: ContentForm, pdfFile: File | null): LoadContentCommand {
   switch (form.kind) {
     case 'url':
-      return { kind: 'url', url: form.url, readMode: form.readMode };
+      return { kind: 'url', url: form.url, readMode: readModeFor(form.readMode) };
     case 'video':
       return { kind: 'video', url: form.url };
     case 'text':
-      return { kind: 'text', text: form.pastedText, readMode: form.readMode };
+      return { kind: 'text', text: form.pastedText, readMode: readModeFor(form.readMode) };
     case 'pdf':
       return {
         kind: 'pdf',
         source: form.pdf.method === 'url' ? new RemotePdfSource(form.pdf.url) : new LocalFilePdfSource(pdfFile!),
-        readMode: form.readMode,
+        readMode: readModeFor(form.readMode),
         selection: pdfSelectionOf(form.pdf),
       };
   }
@@ -397,23 +394,3 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(target.tagName);
 }
 
-function ModeButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}): React.JSX.Element {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
-        active ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}

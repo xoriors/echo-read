@@ -4,7 +4,7 @@ import {
   type PdfSelectionMode,
   type SourceKind,
 } from '../../shared/domain/contentSource';
-import type { ReadMode } from '../../shared/domain/readMode';
+import type { DocumentMode } from './documentMode';
 
 /**
  * What the reader has typed in, before it becomes a request.
@@ -14,7 +14,8 @@ import type { ReadMode } from '../../shared/domain/readMode';
  */
 export interface ContentForm {
   kind: SourceKind;
-  readMode: ReadMode;
+  /** Full / Short / Long / Learn — the last opens the study panel instead. */
+  readMode: DocumentMode;
   url: string;
   pastedText: string;
   pdf: PdfForm;
