@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8" /><title>quiz audio probe</title></head>
+  <body>
+    <div id="root"></div>
+    <pre id="out"></pre>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import { QuizView } from '/src/client/adapters/inbound/react/components/study/QuizView.tsx';
+      import { CardSpeaker } from '/src/client/application/cardSpeaker.ts';
+      import { HttpSpeechGateway } from '/src/client/adapters/outbound/http/httpSpeechGateway.ts';
+      import { ApiClient } from '/src/client/adapters/outbound/http/apiClient.ts';
+      import { WebAudioOutput, NARRATION_SAMPLE_RATE } from '/src/client/adapters/outbound/audio/webAudioOutput.ts';
+
+      const out = document.getElementById('out');
+      const log = (m) => { out.textContent += m + '\n'; };
+
+      const status = { publish: () => {}, subscribe: () => () => {} };
+      const speech = new HttpSpeechGateway(new ApiClient(status));
+      const speaker = new CardSpeaker(speech, new WebAudioOutput(NARRATION_SAMPLE_RATE), status, 'Zephyr');
+
+      const item = {
+        id: 'q1',
+        stem: 'Which retrieval schedule produced the strongest long-term retention?',
+        options: ['Massed practice', 'Distributed practice', 'Rereading', 'Highlighting'],
+        answerIndex: 1,
+        rationale: 'Spacing the same total study time produced better delayed recall.',
+        sourcePage: 4,
+      };
+      window.__answer = item.options[item.answerIndex];
+
+      createRoot(document.getElementById('root')).render(
+        React.createElement(QuizView, {
+          items: [item],
+          onSpeakQuestion: (stem, options) => { void speaker.speakQuestion(stem, options); },
+          onSpeakAnswer: (answer, rationale) => { void speaker.speakAnswer(answer, rationale); },
+        }),
+      );
+
+      log('READY');
+    </script>
+  </body>
+</html>

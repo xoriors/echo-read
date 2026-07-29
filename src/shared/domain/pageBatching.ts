@@ -78,11 +78,20 @@ export function batchPages(
   return batches;
 }
 
+/**
+ * Pages as a model should see them, with their numbers attached.
+ *
+ * Anything that asks a model to cite a page needs this, not just batching: a
+ * block of text without markers can only be attributed by guesswork, and in
+ * testing the guess was wrong every time.
+ */
+export function labelPages(pages: readonly DocumentPage[]): string {
+  return pages.map((page) => `${pageMarker(page.number)}\n${page.text}`).join(PAGE_SEPARATOR);
+}
+
 function toBatch(index: number, pages: DocumentPage[]): PageBatch {
   const text = pages.map((page) => page.text).join(PAGE_SEPARATOR);
-  const labelledText = pages
-    .map((page) => `${pageMarker(page.number)}\n${page.text}`)
-    .join(PAGE_SEPARATOR);
+  const labelledText = labelPages(pages);
 
   return {
     index,

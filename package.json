@@ -7,7 +7,9 @@
     "dev": "tsx src/server/main.ts",
     "build": "vite build && esbuild src/server/main.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node tests/run.mjs",
+    "test:live": "tsx tests/explainLive.test.ts"
   },
   "dependencies": {
     "@google/genai": "^1.27.0",

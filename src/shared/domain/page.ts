@@ -32,6 +32,104 @@ export function totalCharacters(pages: readonly DocumentPage[]): number {
 }
 
 /**
+ * Where each page sits inside {@link pagesToText}.
+ *
+ * Storage keeps one flattened copy of a document, and pages cannot be recovered
+ * from it: `PAGE_SEPARATOR` is a blank line, which occurs inside ordinary prose
+ * too, so splitting on it would invent page boundaries. An index costs a few
+ * dozen bytes per page and is exact, where a second copy of a book's text would
+ * cost the book again.
+ */
+export interface PageSpan {
+  number: number;
+  start: number;
+  /** Exclusive, as `String.slice` expects. */
+  end: number;
+}
+
+export function pageSpans(pages: readonly DocumentPage[]): PageSpan[] {
+  const spans: PageSpan[] = [];
+  let cursor = 0;
+
+  for (const page of pages) {
+    spans.push({ number: page.number, start: cursor, end: cursor + page.text.length });
+    cursor += page.text.length + PAGE_SEPARATOR.length;
+  }
+
+  return spans;
+}
+
+/**
+ * Rebuilds pages from the flattened text and its index.
+ *
+ * Documents stored before pages were indexed have none, and a missing index is
+ * answered with one page rather than an error: the text is still the text, and
+ * a citation to page 1 of a single-page document is honest.
+ */
+export function pagesFromSpans(
+  text: string,
+  spans: readonly PageSpan[] | null,
+): DocumentPage[] {
+  if (!spans || spans.length === 0) return singlePage(text);
+  return spans.map((span) => ({ number: span.number, text: text.slice(span.start, span.end) }));
+}
+
+/**
+ * The pages worth showing a model when the subject is one passage.
+ *
+ * A book will not fit in a call, and the whole book is the wrong context
+ * anyway: a prompt about page 40 is answered from the pages around page 40.
+ * The window grows outwards from the cited page so context arrives on both
+ * sides, and stops at the character budget.
+ *
+ * A side stops the moment one page will not fit rather than skipping it for a
+ * smaller one further out: the result is a contiguous run of pages. A window
+ * with a hole in it would let the model cite around a gap it was never shown.
+ *
+ * The centre page is always included, even alone and even over budget — a
+ * prompt about a page has to be answered against that page.
+ */
+export function pageWindow(
+  pages: readonly DocumentPage[],
+  around: number | null,
+  budget: number,
+): DocumentPage[] {
+  if (pages.length === 0) return [];
+
+  const centre = Math.max(
+    0,
+    pages.findIndex((page) => page.number === around),
+  );
+
+  let first = centre;
+  let last = centre;
+  let used = pages[centre].text.length;
+  let growBefore = true;
+  let growAfter = true;
+
+  while (growBefore || growAfter) {
+    const before = growBefore ? pages[first - 1] : undefined;
+    const after = growAfter ? pages[last + 1] : undefined;
+
+    if (before && used + before.text.length <= budget) {
+      used += before.text.length;
+      first--;
+    } else {
+      growBefore = false;
+    }
+
+    if (after && used + after.text.length <= budget) {
+      used += after.text.length;
+      last++;
+    } else {
+      growAfter = false;
+    }
+  }
+
+  return pages.slice(first, last + 1);
+}
+
+/**
  * Whether a text layer was actually recovered.
  *
  * Scanned PDFs are images: `pdfjs` returns a page per sheet and no words on

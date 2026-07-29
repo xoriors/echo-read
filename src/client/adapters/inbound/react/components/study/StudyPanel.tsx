@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 
-import type { ScheduledCardResponse, StudyPackResponse } from '../../../../../../shared/contracts/api';
+import type {
+  ExplainCheckResponse,
+  ScheduledCardResponse,
+  StudyPackResponse,
+} from '../../../../../../shared/contracts/api';
 import { toAnkiTsv, type Rating } from '../../../../../domain/study';
 import { downloadTextFile } from '../../../../outbound/browser/browserApis';
 import { ToolbarButton } from '../controls';
 import { DownloadIcon } from '../icons';
 import { FlashcardReview } from './FlashcardReview';
 import { QuizView } from './QuizView';
+import { SelfExplanation } from './SelfExplanation';
 
 interface StudyPanelProps {
   pack: StudyPackResponse | null;
@@ -20,11 +25,13 @@ interface StudyPanelProps {
   onSpeakQuestion: (stem: string, options: readonly string[]) => void;
   /** Reads the answer. Offered only after an attempt. */
   onSpeakAnswer: (answer: string, rationale?: string) => void;
+  /** Grades an explanation the learner wrote, against the stored document. */
+  onCheckExplanation: (explanationId: string, answer: string) => Promise<ExplainCheckResponse>;
   /** Cards due across every document, not just this one. */
   dueCards: readonly ScheduledCardResponse[];
 }
 
-type Tab = 'cards' | 'quiz';
+type Tab = 'cards' | 'quiz' | 'explain';
 
 const ANKI_FILE_NAME = 'EchoRead_Deck.txt';
 
@@ -44,6 +51,7 @@ export function StudyPanel({
   onSpeakCard,
   onSpeakQuestion,
   onSpeakAnswer,
+  onCheckExplanation,
   dueCards,
 }: StudyPanelProps): React.JSX.Element {
   const [tab, setTab] = useState<Tab>('cards');
@@ -89,6 +97,9 @@ export function StudyPanel({
           </TabButton>
           <TabButton active={tab === 'quiz'} onClick={() => setTab('quiz')}>
             Questions ({pack.quizItems.length})
+          </TabButton>
+          <TabButton active={tab === 'explain'} onClick={() => setTab('explain')}>
+            Explain ({pack.selfExplanationPrompts.length})
           </TabButton>
         </div>
         <ToolbarButton onClick={exportDeck} title="Export for Anki">
@@ -143,23 +154,17 @@ export function StudyPanel({
           onGrade={onGrade}
           onSpeakCard={onSpeakCard}
         />
-      ) : (
+      ) : tab === 'quiz' ? (
         <QuizView
           items={pack.quizItems}
           onSpeakQuestion={onSpeakQuestion}
           onSpeakAnswer={onSpeakAnswer}
         />
-      )}
-
-      {pack.selfExplanationPrompts.length > 0 && (
-        <div className="mt-6 p-4 bg-gray-700/40 rounded-lg border border-gray-600">
-          <h3 className="text-gray-200 font-semibold mb-2">Explain in your own words:</h3>
-          <ul className="list-disc list-inside space-y-1 text-gray-300">
-            {pack.selfExplanationPrompts.map((prompt, index) => (
-              <li key={`${index}-${prompt.prompt}`}>{prompt.prompt}</li>
-            ))}
-          </ul>
-        </div>
+      ) : (
+        /* A tab rather than a list under the deck. It used to be prose with
+           nowhere to write, which a reader could scroll past — the passive
+           consumption this whole feature exists to avoid. */
+        <SelfExplanation prompts={pack.selfExplanationPrompts} onCheck={onCheckExplanation} />
       )}
 
       {/* Required from 2 August 2026 by the EU AI Act, and honest regardless:

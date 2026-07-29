@@ -1,4 +1,5 @@
 import type {
+  ExplainCheckResponse,
   ReviewQueueResponse,
   ScheduledCardResponse,
   StudyPackResponse,
@@ -22,6 +23,14 @@ export interface StudyGateway {
   generate(command: GenerateStudyPackCommand): Promise<StudyPackResponse>;
   dueCards(): Promise<ReviewQueueResponse>;
   grade(cardId: string, rating: number): Promise<{ dueAt: string }>;
+
+  /**
+   * Grades an explanation the learner wrote in their own words.
+   *
+   * Server-side because the grading needs the stored document: the browser
+   * holds a summary or a page range, not the pages the feedback has to cite.
+   */
+  checkExplanation(explanationId: string, answer: string): Promise<ExplainCheckResponse>;
 }
 
 export type { ScheduledCardResponse };

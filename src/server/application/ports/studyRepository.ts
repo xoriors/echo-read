@@ -1,4 +1,6 @@
-import type { Flashcard, QuizItem, StudyPack } from '../../../shared/domain/studyPack';
+import type { ExplanationFeedback } from '../../../shared/domain/explanationFeedback';
+import type { DocumentPage } from '../../../shared/domain/page';
+import type { Flashcard, PreQuestion, QuizItem, StudyPack } from '../../../shared/domain/studyPack';
 
 /** A card as stored: the content plus where the schedule has it. */
 export interface ScheduledCard extends Flashcard {
@@ -9,6 +11,13 @@ export interface ScheduledCard extends Flashcard {
   difficulty: number | null;
 }
 
+/** A self-explanation prompt as stored: an answer is graded against its id. */
+export interface StoredExplanationPrompt {
+  id: string;
+  prompt: string;
+  sourcePage?: number;
+}
+
 export interface StoredStudyPack {
   packId: string;
   documentId: string;
@@ -16,17 +25,34 @@ export interface StoredStudyPack {
   generatedAt: string;
   flashcards: ScheduledCard[];
   quizItems: (QuizItem & { id: string })[];
+  preQuestions: PreQuestion[];
+  selfExplanationPrompts: StoredExplanationPrompt[];
 }
 
 export interface SaveStudyPackCommand {
   ownerId: string;
   title: string;
   kind: string;
-  pageCount: number;
+  /** The document itself, kept as pages so a citation stays checkable. */
+  pages: readonly DocumentPage[];
   /** Identifies the document by content, so re-opening it reuses the pack. */
   sourceHash: string;
-  text: string;
   pack: StudyPack;
+}
+
+/** A prompt together with the document it was drawn from, ready to grade against. */
+export interface ExplanationContext {
+  id: string;
+  prompt: string;
+  sourcePage: number | null;
+  pages: DocumentPage[];
+}
+
+export interface ExplanationAttempt {
+  ownerId: string;
+  explanationId: string;
+  answer: string;
+  feedback: ExplanationFeedback;
 }
 
 export interface ReviewGrade {
@@ -66,4 +92,15 @@ export interface StudyRepository {
    * rather than reporting a success that changed nothing.
    */
   recordReview(grade: ReviewGrade): Promise<boolean>;
+
+  /**
+   * A self-explanation prompt and the document behind it.
+   *
+   * Returns null when the prompt is not this owner's, so grading someone
+   * else's is a rejection rather than a lookup that happens to find nothing.
+   */
+  findExplanation(ownerId: string, explanationId: string): Promise<ExplanationContext | null>;
+
+  /** Keeps an answer and the feedback it drew. Append-only. */
+  recordExplanationAttempt(attempt: ExplanationAttempt): Promise<void>;
 }

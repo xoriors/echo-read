@@ -276,6 +276,13 @@ export default function App(): React.JSX.Element {
     [study, refreshDueCards],
   );
 
+  // Errors surface inside the panel, beside the answer they belong to, rather
+  // than in the page banner: the learner is mid-sentence in a textarea.
+  const handleCheckExplanation = useCallback(
+    (explanationId: string, answer: string) => study.checkExplanation(explanationId, answer),
+    [study],
+  );
+
   const canControlPlayback = narration.isLoaded && narration.state !== PlaybackState.Buffering && !isFetching;
   const isBusy = isFetching || narration.state === PlaybackState.Buffering;
 
@@ -304,6 +311,7 @@ export default function App(): React.JSX.Element {
             onSpeakCard={(front, back) => void cardSpeaker.speakCard(front, back)}
             onSpeakQuestion={(stem, options) => void cardSpeaker.speakQuestion(stem, options)}
             onSpeakAnswer={(answer, rationale) => void cardSpeaker.speakAnswer(answer, rationale)}
+            onCheckExplanation={handleCheckExplanation}
             dueCards={dueCards}
           />
         )}

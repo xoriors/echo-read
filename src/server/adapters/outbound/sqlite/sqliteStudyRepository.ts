@@ -1,10 +1,19 @@
 import { randomUUID } from 'node:crypto';
 
+import {
+  pageSpans,
+  pagesFromSpans,
+  pagesToText,
+  type PageSpan,
+} from '../../../../shared/domain/page';
 import { isBloomLevel } from '../../../../shared/domain/studyPack';
 import type {
+  ExplanationAttempt,
+  ExplanationContext,
   ReviewGrade,
   SaveStudyPackCommand,
   ScheduledCard,
+  StoredExplanationPrompt,
   StoredStudyPack,
   StudyRepository,
 } from '../../../application/ports/studyRepository';
@@ -79,8 +88,8 @@ export class SqliteStudyRepository implements StudyRepository {
     try {
       database
         .prepare(
-          `INSERT INTO document (id, owner_id, title, kind, page_count, source_hash, text)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO document (id, owner_id, title, kind, page_count, source_hash, text, page_index)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(owner_id, source_hash) DO UPDATE SET title = excluded.title
            RETURNING id`,
         )
@@ -89,9 +98,10 @@ export class SqliteStudyRepository implements StudyRepository {
           command.ownerId,
           command.title,
           command.kind,
-          command.pageCount,
+          command.pages.length,
           command.sourceHash,
-          command.text,
+          pagesToText(command.pages),
+          JSON.stringify(pageSpans(command.pages)),
         );
 
       // The insert may have hit the conflict clause and updated an existing
@@ -137,6 +147,27 @@ export class SqliteStudyRepository implements StudyRepository {
           item.sourcePage ?? null,
           item.sourceQuote ?? null,
         );
+      }
+
+      const insertExplanation = database.prepare(
+        `INSERT INTO self_explanation (id, study_pack_id, owner_id, prompt, source_page)
+         VALUES (?, ?, ?, ?, ?)`,
+      );
+      for (const entry of command.pack.selfExplanationPrompts) {
+        insertExplanation.run(
+          randomUUID(),
+          packId,
+          command.ownerId,
+          entry.prompt,
+          entry.sourcePage ?? null,
+        );
+      }
+
+      const insertPreQuestion = database.prepare(
+        'INSERT INTO pre_question (id, study_pack_id, question) VALUES (?, ?, ?)',
+      );
+      for (const pre of command.pack.preQuestions) {
+        insertPreQuestion.run(randomUUID(), packId, pre.question);
       }
 
       database.exec('COMMIT');
@@ -197,6 +228,51 @@ export class SqliteStudyRepository implements StudyRepository {
     }
   }
 
+  async findExplanation(
+    ownerId: string,
+    explanationId: string,
+  ): Promise<ExplanationContext | null> {
+    // Owner-scoped in the query rather than checked afterwards: the same rule
+    // grading a card follows, for the same reason — an id from someone else's
+    // deck must not become usable just because it was guessed or leaked.
+    const row = this.databases
+      .get()
+      .prepare(
+        `SELECT e.id, e.prompt, e.source_page, d.text, d.page_index
+           FROM self_explanation e
+           JOIN study_pack p ON p.id = e.study_pack_id
+           JOIN document d ON d.id = p.document_id
+          WHERE e.id = ? AND e.owner_id = ?`,
+      )
+      .get(explanationId, ownerId) as unknown as
+      | { id: string; prompt: string; source_page: number | null; text: string; page_index: string | null }
+      | undefined;
+
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      prompt: row.prompt,
+      sourcePage: row.source_page,
+      pages: pagesFromSpans(row.text, parseSpans(row.page_index)),
+    };
+  }
+
+  async recordExplanationAttempt(attempt: ExplanationAttempt): Promise<void> {
+    this.databases
+      .get()
+      .prepare(
+        `INSERT INTO explanation_attempt (self_explanation_id, owner_id, answer, feedback)
+         VALUES (?, ?, ?, ?)`,
+      )
+      .run(
+        attempt.explanationId,
+        attempt.ownerId,
+        attempt.answer,
+        JSON.stringify(attempt.feedback),
+      );
+  }
+
   private load(
     packId: string,
     documentId: string,
@@ -223,11 +299,27 @@ export class SqliteStudyRepository implements StudyRepository {
       )
       .all(packId) as unknown as QuizRow[];
 
+    const explanations = database
+      .prepare('SELECT id, prompt, source_page FROM self_explanation WHERE study_pack_id = ?')
+      .all(packId) as unknown as { id: string; prompt: string; source_page: number | null }[];
+
+    const preQuestions = database
+      .prepare('SELECT question FROM pre_question WHERE study_pack_id = ?')
+      .all(packId) as unknown as { question: string }[];
+
     return {
       packId,
       documentId,
       model,
       generatedAt,
+      preQuestions,
+      selfExplanationPrompts: explanations.map(
+        (row): StoredExplanationPrompt => ({
+          id: row.id,
+          prompt: row.prompt,
+          sourcePage: row.source_page ?? undefined,
+        }),
+      ),
       flashcards: cards.map(toScheduledCard),
       quizItems: quiz.map((row) => ({
         id: row.id,
@@ -255,6 +347,33 @@ function toScheduledCard(row: CardRow): ScheduledCard {
     stability: row.fsrs_stability,
     difficulty: row.fsrs_difficulty,
   };
+}
+
+/**
+ * The page index, or null.
+ *
+ * Null for documents stored before pages were indexed, and null again if the
+ * JSON is unreadable — both are answered upstream by treating the text as one
+ * page, which is a worse citation than the real one but not a wrong one.
+ */
+function parseSpans(value: string | null): PageSpan[] | null {
+  if (!value) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return null;
+
+    return parsed.filter(
+      (span): span is PageSpan =>
+        typeof span === 'object' &&
+        span !== null &&
+        typeof (span as PageSpan).number === 'number' &&
+        typeof (span as PageSpan).start === 'number' &&
+        typeof (span as PageSpan).end === 'number',
+    );
+  } catch {
+    return null;
+  }
 }
 
 /** Options are stored as JSON; a corrupt row should cost one item, not the deck. */

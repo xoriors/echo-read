@@ -99,6 +99,53 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX review_card_idx ON review (flashcard_id, reviewed_at);
     `,
   },
+  {
+    id: 2,
+    name: 'self_explanation',
+    sql: `
+      -- Where each page starts and ends inside document.text, as JSON.
+      -- Pages cannot be recovered from the flattened text — the separator is a
+      -- blank line, which occurs inside prose — and a second copy of a book
+      -- would cost the book again. Nullable: rows written before this migration
+      -- have no index and are read as a single page.
+      ALTER TABLE document ADD COLUMN page_index TEXT;
+
+      -- Generated with the pack, and now kept: an answer needs something
+      -- durable to attach to, and a reused pack used to come back without its
+      -- prompts at all, because nothing stored them.
+      CREATE TABLE self_explanation (
+        id             TEXT PRIMARY KEY,
+        study_pack_id  TEXT NOT NULL REFERENCES study_pack(id) ON DELETE CASCADE,
+        owner_id       TEXT NOT NULL REFERENCES owner(id) ON DELETE CASCADE,
+        prompt         TEXT NOT NULL,
+        source_page    INTEGER
+      );
+      CREATE INDEX self_explanation_pack_idx ON self_explanation (study_pack_id);
+
+      -- Stored for the same reason, though nothing is graded against them.
+      CREATE TABLE pre_question (
+        id             TEXT PRIMARY KEY,
+        study_pack_id  TEXT NOT NULL REFERENCES study_pack(id) ON DELETE CASCADE,
+        question       TEXT NOT NULL
+      );
+      CREATE INDEX pre_question_pack_idx ON pre_question (study_pack_id);
+
+      -- Append-only, like review: a learner explaining the same idea twice a
+      -- week apart is the improvement they came for, and overwriting the first
+      -- attempt would hide it.
+      CREATE TABLE explanation_attempt (
+        id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+        self_explanation_id  TEXT NOT NULL REFERENCES self_explanation(id) ON DELETE CASCADE,
+        owner_id             TEXT NOT NULL REFERENCES owner(id) ON DELETE CASCADE,
+        answer               TEXT NOT NULL,
+        -- The graded result as JSON: it is shown back, never queried across.
+        feedback             TEXT NOT NULL,
+        created_at           TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX explanation_attempt_idx
+        ON explanation_attempt (self_explanation_id, created_at);
+    `,
+  },
 ];
 
 const LEDGER = `

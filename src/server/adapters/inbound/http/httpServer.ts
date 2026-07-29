@@ -13,7 +13,7 @@ import { mountStaticSite } from './staticSite';
 const JSON_BODY_LIMIT = '50mb';
 
 export interface HttpServerOptions {
-  useCases: ContentUseCases & { speakText: SpeakTextUseCase } & Pick<StudyUseCases, 'buildStudyPack'>;
+  useCases: ContentUseCases & { speakText: SpeakTextUseCase } & Pick<StudyUseCases, 'buildStudyPack' | 'checkExplanation'>;
   studyRepository: StudyUseCases['studyRepository'];
   logger: Logger;
   isProduction: boolean;
@@ -39,7 +39,13 @@ export async function createHttpServer({
   app.use(ownerIdentity(sessionSecret, { secure: isProduction }));
   app.use(contentRouter(useCases));
   app.use(speechRouter(useCases.speakText));
-  app.use(studyRouter({ buildStudyPack: useCases.buildStudyPack, studyRepository }));
+  app.use(
+    studyRouter({
+      buildStudyPack: useCases.buildStudyPack,
+      checkExplanation: useCases.checkExplanation,
+      studyRepository,
+    }),
+  );
 
   await mountStaticSite(app, { isProduction });
 

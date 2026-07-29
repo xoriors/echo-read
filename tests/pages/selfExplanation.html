@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8" /><title>self explanation probe</title></head>
+  <body>
+    <div id="root"></div>
+    <pre id="out"></pre>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import { SelfExplanation } from '/src/client/adapters/inbound/react/components/study/SelfExplanation.tsx';
+
+      window.__calls = [];
+
+      const FEEDBACK = {
+        feedback: {
+          summary: 'A solid start, but the mechanism is missing.',
+          covered: [
+            { point: 'You defined retrieval practice correctly.', sourcePage: 2, sourceQuote: 'recalling rather than rereading' },
+          ],
+          missed: [
+            { point: 'You did not mention that retrieval modifies the memory.', sourcePage: 2, sourceQuote: 'the act of retrieval itself modifies memory' },
+          ],
+          incorrect: [],
+        },
+        model: 'test-model',
+        unverified: 2,
+      };
+
+      createRoot(document.getElementById('root')).render(
+        React.createElement(SelfExplanation, {
+          prompts: [
+            { id: 'e1', prompt: 'Explain retrieval practice in your own words.', sourcePage: 2 },
+            { id: 'e2', prompt: 'Explain interleaving in your own words.', sourcePage: 3 },
+          ],
+          onCheck: async (id, answer) => {
+            window.__calls.push({ id, answer });
+            return FEEDBACK;
+          },
+        }),
+      );
+
+      document.getElementById('out').textContent = 'READY';
+    </script>
+  </body>
+</html>

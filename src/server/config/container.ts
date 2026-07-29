@@ -16,6 +16,7 @@ import { ReadPdfUseCase } from '../application/usecases/readPdf';
 import { SpeakTextUseCase } from '../application/usecases/speakText';
 import { SummarizeTextUseCase } from '../application/usecases/summarizeText';
 import { BuildStudyPackUseCase } from '../application/usecases/buildStudyPack';
+import { CheckExplanationUseCase } from '../application/usecases/checkExplanation';
 import type { StudyRepository } from '../application/ports/studyRepository';
 import type { ServerConfig } from './environment';
 
@@ -30,6 +31,7 @@ export interface ServerContainer {
     readPdf: ReadPdfUseCase;
     speakText: SpeakTextUseCase;
     buildStudyPack: BuildStudyPackUseCase;
+    checkExplanation: CheckExplanationUseCase;
   };
   studyRepository: StudyRepository;
 }
@@ -93,6 +95,7 @@ export function createServerContainer(config: ServerConfig): ServerContainer {
       readPdf: new ReadPdfUseCase(analyzer),
       speakText: new SpeakTextUseCase(synthesizer),
       buildStudyPack: new BuildStudyPackUseCase(analyzer, logger),
+      checkExplanation: new CheckExplanationUseCase(analyzer, logger),
     },
     studyRepository: new SqliteStudyRepository(database),
   };

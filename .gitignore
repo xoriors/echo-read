@@ -31,3 +31,7 @@ dist-ssr
 # Local SQLite data (the fly volume in production).
 .data/
 .probe-data/
+
+# Scratch databases the test suite creates.
+.test-data/
+.test-data-migrations.db*

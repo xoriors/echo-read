@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8" /><title>study panel probe</title></head>
+  <body>
+    <div id="root"></div>
+    <pre id="out"></pre>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import { StudyPanel } from '/src/client/adapters/inbound/react/components/study/StudyPanel.tsx';
+
+      window.__downloads = [];
+      window.__checked = [];
+      window.__graded = [];
+
+      // Capture the export instead of writing a file.
+      const realCreate = URL.createObjectURL;
+      URL.createObjectURL = (blob) => {
+        blob.text().then((t) => window.__downloads.push(t));
+        return realCreate.call(URL, blob);
+      };
+
+      const pack = {
+        packId: 'p1',
+        documentId: 'd1',
+        model: 'test-model',
+        generatedAt: '2026-01-01T00:00:00Z',
+        flashcards: [
+          { id: 'c1', front: 'What is spacing?', back: 'Study spread over time.', sourcePage: 1, documentTitle: 'Doc', dueAt: null },
+        ],
+        quizItems: [
+          { id: 'q1', stem: 'Which retained best?', options: ['Massed', 'Distributed', 'Rereading', 'Highlighting'], answerIndex: 1, rationale: 'Delayed recall was higher.', sourcePage: 2 },
+        ],
+        preQuestions: [{ question: 'What makes practice effective?' }],
+        selfExplanationPrompts: [{ id: 'e1', prompt: 'Explain spacing in your own words.', sourcePage: 1 }],
+        rejected: 3,
+        reused: false,
+      };
+
+      createRoot(document.getElementById('root')).render(
+        React.createElement(StudyPanel, {
+          pack,
+          isGenerating: false,
+          onGenerate: () => {},
+          onGrade: (id, rating) => window.__graded.push({ id, rating }),
+          onSpeakCard: () => {},
+          onSpeakQuestion: () => {},
+          onSpeakAnswer: () => {},
+          onCheckExplanation: async (id, answer) => {
+            window.__checked.push({ id, answer });
+            return {
+              feedback: { summary: 'Nearly there.', covered: [], missed: [{ point: 'The delay matters.', sourcePage: 1, sourceQuote: 'Study spread over time' }], incorrect: [] },
+              model: 'test-model',
+              unverified: 0,
+            };
+          },
+          dueCards: [],
+        }),
+      );
+
+      document.getElementById('out').textContent = 'READY';
+    </script>
+  </body>
+</html>

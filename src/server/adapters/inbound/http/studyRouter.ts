@@ -4,15 +4,17 @@ import { Router } from 'express';
 
 import {
   API_ROUTES,
+  type ExplainCheckResponse,
   type ReviewCardResponse,
   type ReviewQueueResponse,
   type StudyPackResponse,
 } from '../../../../shared/contracts/api';
 import { ValidationError } from '../../../../shared/domain/errors';
-import { pagesToText, type DocumentPage } from '../../../../shared/domain/page';
+import type { DocumentPage } from '../../../../shared/domain/page';
 import { isRating, scheduleNext } from '../../../domain/scheduling';
-import type { StudyRepository } from '../../../application/ports/studyRepository';
+import type { StoredStudyPack, StudyRepository } from '../../../application/ports/studyRepository';
 import type { BuildStudyPackUseCase } from '../../../application/usecases/buildStudyPack';
+import type { CheckExplanationUseCase } from '../../../application/usecases/checkExplanation';
 import { DEFAULT_TEXT_MODEL } from '../../outbound/gemini/geminiContentAnalyzer';
 import { route } from './errorMiddleware';
 import { requireString } from './requestParsing';
@@ -22,6 +24,7 @@ const REVIEW_QUEUE_LIMIT = 50;
 
 export interface StudyUseCases {
   buildStudyPack: BuildStudyPackUseCase;
+  checkExplanation: CheckExplanationUseCase;
   studyRepository: StudyRepository;
 }
 
@@ -32,7 +35,11 @@ export interface StudyUseCases {
  * sends: a deck belongs to whoever the signed cookie says, so a request cannot
  * name someone else's.
  */
-export function studyRouter({ buildStudyPack, studyRepository }: StudyUseCases): Router {
+export function studyRouter({
+  buildStudyPack,
+  checkExplanation,
+  studyRepository,
+}: StudyUseCases): Router {
   const router = Router();
 
   router.post(
@@ -63,25 +70,15 @@ export function studyRouter({ buildStudyPack, studyRepository }: StudyUseCases):
         ownerId,
         title,
         kind,
-        pageCount: pages.length,
+        pages,
         sourceHash,
-        text: pagesToText(pages),
         pack,
       });
 
-      // Take cards and questions from what was stored, not from what was
-      // generated: only the stored rows carry the ids a review is graded by.
-      // Pre-questions and self-explanation prompts are not stored, so those
-      // come from the generated pack.
-      return respondWith(
-        response,
-        {
-          ...stored,
-          preQuestions: pack.preQuestions,
-          selfExplanationPrompts: pack.selfExplanationPrompts,
-        },
-        { rejected, reused: false },
-      );
+      // Everything comes from what was stored, not from what was generated:
+      // only the stored rows carry the ids a review is graded by and an
+      // explanation is answered against.
+      return respondWith(response, stored, { rejected, reused: false });
     }),
   );
 
@@ -140,6 +137,43 @@ export function studyRouter({ buildStudyPack, studyRepository }: StudyUseCases):
     }),
   );
 
+  router.post(
+    API_ROUTES.explainCheck,
+    route(async (request, response) => {
+      const ownerId = response.locals.ownerId;
+      const explanationId = requireString(request.body, 'explanationId', 'Prompt');
+      const answer = requireString(request.body, 'answer', 'Answer');
+
+      // The prompt *and* its source are looked up by owner, so an id from
+      // someone else's deck is a rejection rather than a free grading against
+      // a document they cannot otherwise read.
+      const context = await studyRepository.findExplanation(ownerId, explanationId);
+      if (!context) throw new ValidationError('Unknown prompt');
+
+      const { feedback, unverified } = await checkExplanation.execute({
+        prompt: context.prompt,
+        answer,
+        pages: context.pages,
+        sourcePage: context.sourcePage,
+      });
+
+      // Kept after the grading rather than before it: an attempt that never
+      // drew feedback is not one the learner made.
+      await studyRepository.recordExplanationAttempt({
+        ownerId,
+        explanationId,
+        answer,
+        feedback,
+      });
+
+      response.json({
+        feedback,
+        model: DEFAULT_TEXT_MODEL,
+        unverified,
+      } satisfies ExplainCheckResponse);
+    }),
+  );
+
   return router;
 }
 
@@ -148,16 +182,7 @@ const FAR_FUTURE = '9999-12-31T00:00:00.000Z';
 
 function respondWith(
   response: Parameters<Parameters<typeof route>[0]>[1],
-  stored: {
-    packId: string;
-    documentId: string;
-    model: string;
-    generatedAt: string;
-    flashcards: { id: string; front: string; back: string; sourcePage?: number; sourceQuote?: string; documentTitle: string; dueAt: string | null }[];
-    quizItems: StudyPackResponse['quizItems'];
-    preQuestions?: { question: string }[];
-    selfExplanationPrompts?: { prompt: string; sourcePage?: number }[];
-  },
+  stored: StoredStudyPack,
   { rejected, reused }: { rejected: number; reused: boolean },
 ): void {
   response.json({
@@ -167,8 +192,8 @@ function respondWith(
     generatedAt: stored.generatedAt,
     flashcards: stored.flashcards,
     quizItems: stored.quizItems,
-    preQuestions: stored.preQuestions ?? [],
-    selfExplanationPrompts: stored.selfExplanationPrompts ?? [],
+    preQuestions: stored.preQuestions,
+    selfExplanationPrompts: stored.selfExplanationPrompts,
     rejected,
     reused,
   } satisfies StudyPackResponse);

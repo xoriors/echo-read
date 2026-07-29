@@ -199,3 +199,69 @@ Text:
 ${batchText}`,
   };
 }
+
+/**
+ * Grades a learner's own-words explanation against the passage it came from.
+ *
+ * The model marks rather than the learner because the finding this feature is
+ * built on is that people judge their own understanding badly — the illusion of
+ * competence is strongest exactly after reading something fluent. Handing back
+ * a reference answer and asking "how did you do?" gives the judgement to the
+ * faculty least able to make it.
+ *
+ * What separates useful feedback from flattery is the instruction to name what
+ * is *missing*. A model shown an answer and asked to comment will agree with
+ * it; being told that omissions are the point, and that the source decides what
+ * counts as one, is what makes the reply worth reading.
+ *
+ * Citations follow the pack's rule — real page, verbatim quote — because the
+ * caller checks each one and discards the points it cannot verify.
+ */
+export function explanationFeedbackPrompt(
+  prompt: string,
+  answer: string,
+  sourceText: string,
+  { firstPage, lastPage }: { firstPage: number; lastPage: number },
+): Prompt {
+  const pageRange =
+    firstPage === lastPage ? `page ${firstPage}` : `pages ${firstPage} to ${lastPage}`;
+
+  return {
+    systemInstruction: [
+      'You give a learner feedback on an explanation they wrote in their own words.',
+      'You judge only against the supplied source, never against what you happen to know.',
+      'You are candid about what is missing: agreeing with a weak answer teaches nothing.',
+      'You never invent a page number or a quotation.',
+    ].join(' '),
+    userPrompt: `The text below is ${pageRange} of a document a learner has been
+studying. Each page begins with a marker like [Page 7]; everything after a
+marker belongs to that page, until the next marker.
+
+They were asked:
+${prompt}
+
+They wrote:
+${answer}
+
+Return JSON matching the supplied schema.
+
+- "covered": what they got right, each stated in the source's own terms.
+- "missed": what the source treats as central to this question and their answer
+  left out. This is the most useful part of the reply — do not pad it, and do
+  not leave it empty just to be encouraging.
+- "incorrect": claims the source contradicts. Leave this empty if there are
+  none. A difference of wording or emphasis is not an error, and neither is a
+  claim the source simply does not address — if the source does not settle it,
+  say so in the summary instead of marking it wrong.
+- "summary": one or two sentences, addressed to the learner, saying where their
+  explanation stands and what to look at next.
+
+For every point in every list:
+- "sourcePage" must be a page number between ${firstPage} and ${lastPage}.
+- "sourceQuote" must be copied word for word from the text below, from that
+  page, short enough to locate the claim (roughly 5 to 20 words).
+
+Text:
+${sourceText}`,
+  };
+}

@@ -3,6 +3,7 @@ import type { AppErrorCode } from '../domain/errors';
 import type { GroundingSource } from '../domain/groundingSource';
 import type { DocumentPage } from '../domain/page';
 import type { ReadMode, SummaryMode } from '../domain/readMode';
+import type { ExplanationFeedback } from '../domain/explanationFeedback';
 import type { Flashcard, QuizItem } from '../domain/studyPack';
 
 /**
@@ -22,6 +23,7 @@ export const API_ROUTES = {
   studyPack: '/api/study-pack',
   reviewQueue: '/api/review-queue',
   reviewCard: '/api/review-card',
+  explainCheck: '/api/explain-check',
 } as const;
 
 export interface FetchArticleRequest {
@@ -97,11 +99,18 @@ export interface StudyPackResponse {
   flashcards: ScheduledCardResponse[];
   quizItems: (QuizItem & { id: string })[];
   preQuestions: { question: string }[];
-  selfExplanationPrompts: { prompt: string; sourcePage?: number }[];
+  selfExplanationPrompts: SelfExplanationPromptResponse[];
   /** Items the model produced that failed verification and were discarded. */
   rejected: number;
   /** True when an existing pack was returned rather than generated again. */
   reused: boolean;
+}
+
+/** Carries an id, because an answer to it is graded and kept. */
+export interface SelfExplanationPromptResponse {
+  id: string;
+  prompt: string;
+  sourcePage?: number;
 }
 
 export interface ReviewQueueResponse {
@@ -116,4 +125,21 @@ export interface ReviewCardRequest {
 
 export interface ReviewCardResponse {
   dueAt: string;
+}
+
+export interface ExplainCheckRequest {
+  explanationId: string;
+  answer: string;
+}
+
+export interface ExplainCheckResponse {
+  feedback: ExplanationFeedback;
+  /**
+   * The model that graded this, for the AI-generated disclosure — feedback on
+   * someone's own words is exactly where it should not be mistaken for a
+   * person's.
+   */
+  model: string;
+  /** Feedback points discarded for citing a page the source does not support. */
+  unverified: number;
 }

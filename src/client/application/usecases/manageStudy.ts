@@ -1,4 +1,8 @@
-import type { ScheduledCardResponse, StudyPackResponse } from '../../../shared/contracts/api';
+import type {
+  ExplainCheckResponse,
+  ScheduledCardResponse,
+  StudyPackResponse,
+} from '../../../shared/contracts/api';
 import type { SourceKind } from '../../../shared/domain/contentSource';
 import type { DocumentPage } from '../../../shared/domain/page';
 import type { StudyGateway } from '../ports/studyGateway';
@@ -43,5 +47,16 @@ export class ManageStudyUseCase {
   async grade(cardId: string, rating: number): Promise<string> {
     const { dueAt } = await this.gateway.grade(cardId, rating);
     return dueAt;
+  }
+
+  /** Grading reads the document and reasons over it, so it is not instant. */
+  async checkExplanation(explanationId: string, answer: string): Promise<ExplainCheckResponse> {
+    this.status.publish('Reading your explanation...');
+
+    try {
+      return await this.gateway.checkExplanation(explanationId, answer);
+    } finally {
+      this.status.publish('');
+    }
   }
 }
