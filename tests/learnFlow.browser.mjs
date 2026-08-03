@@ -45,7 +45,7 @@ await page.route('**/api/summarize-text', async (route) =>
 );
 
 await page.route('**/api/review-queue', async (route) =>
-  route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ cards: [] }) }),
+  route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ cards: [], questions: [] }) }),
 );
 
 await page.route('**/api/study-pack', async (route) =>

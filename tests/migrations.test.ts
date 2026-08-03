@@ -18,7 +18,7 @@ const check = (ok: boolean, label: string): void => {
 const first = new DatabaseSync(PATH);
 first.exec('PRAGMA foreign_keys = ON');
 const one = migrate(first);
-check(one.applied.join(',') === '1,2', `first run applies 1 and 2 (applied ${one.applied})`);
+check(one.applied.join(',') === '1,2,3', `first run applies every migration (applied ${one.applied})`);
 
 first.prepare("INSERT INTO owner (id) VALUES ('o1')").run();
 first
@@ -44,15 +44,16 @@ const second = new DatabaseSync(PATH);
 second.exec('PRAGMA foreign_keys = ON');
 const two = migrate(second);
 check(two.applied.length === 0, `second run applies nothing (applied ${JSON.stringify(two.applied)})`);
-check(two.skipped.join(',') === '1,2', `both migrations stay recorded (skipped ${two.skipped})`);
+check(two.skipped.join(',') === '1,2,3', `every migration stays recorded (skipped ${two.skipped})`);
 
 const ledger = second.prepare('SELECT id, name FROM schema_migration ORDER BY id').all() as {
   id: number;
   name: string;
 }[];
-check(ledger.length === 2, `ledger holds exactly two rows (got ${ledger.length})`);
+check(ledger.length === 3, `ledger holds one row per migration (got ${ledger.length})`);
 check(ledger[0]?.name === 'study_foundation', 'migration 1 keeps its recorded name');
 check(ledger[1]?.name === 'self_explanation', 'migration 2 is recorded');
+check(ledger[2]?.name === 'scheduled_questions', 'migration 3 is recorded');
 
 const kept = second.prepare("SELECT answer FROM explanation_attempt WHERE self_explanation_id = 'e1'").all();
 check(kept.length === 1, 'data written between runs survives the second migrate');

@@ -1,5 +1,7 @@
 import type {
   ExplainCheckResponse,
+  ReviewQuestionResponse,
+  ReviewQueueResponse,
   ScheduledCardResponse,
   StudyPackResponse,
 } from '../../../shared/contracts/api';
@@ -39,9 +41,19 @@ export class ManageStudyUseCase {
     }
   }
 
+  /** Everything due, of both kinds. */
+  async due(): Promise<ReviewQueueResponse> {
+    return this.gateway.dueCards();
+  }
+
   async dueCards(): Promise<ScheduledCardResponse[]> {
     const { cards } = await this.gateway.dueCards();
     return cards;
+  }
+
+  /** Answers a due question. The server marks it and schedules the next look. */
+  async answerQuestion(quizItemId: string, chosenIndex: number): Promise<ReviewQuestionResponse> {
+    return this.gateway.answerQuestion(quizItemId, chosenIndex);
   }
 
   async grade(cardId: string, rating: number): Promise<string> {

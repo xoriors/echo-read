@@ -6,11 +6,13 @@ import {
   pagesToText,
   type PageSpan,
 } from '../../../../shared/domain/page';
-import { isBloomLevel } from '../../../../shared/domain/studyPack';
+import { isBloomLevel, type QuizItem } from '../../../../shared/domain/studyPack';
 import type {
   ExplanationAttempt,
   ExplanationContext,
+  QuizGrade,
   ReviewGrade,
+  ScheduledQuizItem,
   SaveStudyPackCommand,
   ScheduledCard,
   StoredExplanationPrompt,
@@ -130,15 +132,19 @@ export class SqliteStudyRepository implements StudyRepository {
         );
       }
 
+      // Due immediately, like a new flashcard: a question nobody has tried is
+      // exactly what the schedule should offer first.
       const insertQuiz = database.prepare(
         `INSERT INTO quiz_item
-           (id, study_pack_id, stem, options, answer_index, rationale, bloom_level, source_page, source_quote)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, study_pack_id, owner_id, stem, options, answer_index, rationale,
+            bloom_level, source_page, source_quote, due_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
       );
       for (const item of command.pack.quizItems) {
         insertQuiz.run(
           randomUUID(),
           packId,
+          command.ownerId,
           item.stem,
           JSON.stringify(item.options),
           item.answerIndex,
@@ -194,6 +200,72 @@ export class SqliteStudyRepository implements StudyRepository {
       .all(ownerId, now, limit) as unknown as CardRow[];
 
     return rows.map(toScheduledCard);
+  }
+
+  async dueQuizItems(ownerId: string, now: string, limit: number): Promise<ScheduledQuizItem[]> {
+    const rows = this.databases
+      .get()
+      .prepare(
+        `SELECT q.id, q.stem, q.options, q.answer_index, q.rationale, q.bloom_level,
+                q.source_page, q.source_quote, q.due_at, q.fsrs_stability, q.fsrs_difficulty,
+                d.title
+           FROM quiz_item q
+           JOIN study_pack p ON p.id = q.study_pack_id
+           JOIN document d ON d.id = p.document_id
+          WHERE q.owner_id = ? AND (q.due_at IS NULL OR q.due_at <= ?)
+          ORDER BY q.due_at IS NULL DESC, q.due_at ASC
+          LIMIT ?`,
+      )
+      .all(ownerId, now, limit) as unknown as (QuizRow & {
+      due_at: string | null;
+      fsrs_stability: number | null;
+      fsrs_difficulty: number | null;
+      title: string;
+    })[];
+
+    return rows.map((row) => ({
+      ...toQuizItem(row),
+      documentTitle: row.title,
+      dueAt: row.due_at,
+      stability: row.fsrs_stability,
+      difficulty: row.fsrs_difficulty,
+    }));
+  }
+
+  async recordQuizAttempt(grade: QuizGrade): Promise<boolean> {
+    const database = this.databases.get();
+
+    database.exec('BEGIN');
+    try {
+      // Owner-scoped in the UPDATE, as grading a card is: an id from someone
+      // else's deck must not become gradeable because it was guessed.
+      const updated = database
+        .prepare(
+          `UPDATE quiz_item
+              SET fsrs_stability = ?, fsrs_difficulty = ?, due_at = ?,
+                  last_reviewed_at = datetime('now')
+            WHERE id = ? AND owner_id = ?`,
+        )
+        .run(grade.stability, grade.difficulty, grade.dueAt, grade.quizItemId, grade.ownerId);
+
+      if (updated.changes === 0) {
+        database.exec('ROLLBACK');
+        return false;
+      }
+
+      database
+        .prepare(
+          `INSERT INTO quiz_attempt (quiz_item_id, owner_id, chosen_index, correct)
+           VALUES (?, ?, ?, ?)`,
+        )
+        .run(grade.quizItemId, grade.ownerId, grade.chosenIndex, grade.correct ? 1 : 0);
+
+      database.exec('COMMIT');
+      return true;
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   async recordReview(grade: ReviewGrade): Promise<boolean> {
@@ -321,18 +393,22 @@ export class SqliteStudyRepository implements StudyRepository {
         }),
       ),
       flashcards: cards.map(toScheduledCard),
-      quizItems: quiz.map((row) => ({
-        id: row.id,
-        stem: row.stem,
-        options: parseOptions(row.options),
-        answerIndex: row.answer_index,
-        rationale: row.rationale ?? undefined,
-        bloomLevel: isBloomLevel(row.bloom_level) ? row.bloom_level : undefined,
-        sourcePage: row.source_page ?? undefined,
-        sourceQuote: row.source_quote ?? undefined,
-      })),
+      quizItems: quiz.map(toQuizItem),
     };
   }
+}
+
+function toQuizItem(row: QuizRow): QuizItem & { id: string } {
+  return {
+    id: row.id,
+    stem: row.stem,
+    options: parseOptions(row.options),
+    answerIndex: row.answer_index,
+    rationale: row.rationale ?? undefined,
+    bloomLevel: isBloomLevel(row.bloom_level) ? row.bloom_level : undefined,
+    sourcePage: row.source_page ?? undefined,
+    sourceQuote: row.source_quote ?? undefined,
+  };
 }
 
 function toScheduledCard(row: CardRow): ScheduledCard {

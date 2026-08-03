@@ -6,7 +6,11 @@ import type { GroundingSource } from '../../../../shared/domain/groundingSource'
 import type { ReadMode } from '../../../../shared/domain/readMode';
 import type { LoadContentCommand } from '../../../application/usecases/loadContent';
 import type { LibraryEntry } from '../../../domain/library';
-import type { ScheduledCardResponse, StudyPackResponse } from '../../../../shared/contracts/api';
+import type {
+  ScheduledCardResponse,
+  ScheduledQuizResponse,
+  StudyPackResponse,
+} from '../../../../shared/contracts/api';
 import type { DocumentPage } from '../../../../shared/domain/page';
 import { PlaybackState } from '../../../domain/playback';
 import {
@@ -85,6 +89,7 @@ export default function App(): React.JSX.Element {
   const [studyPack, setStudyPack] = useState<StudyPackResponse | null>(null);
   const [isGeneratingPack, setGeneratingPack] = useState(false);
   const [dueCards, setDueCards] = useState<ScheduledCardResponse[]>([]);
+  const [dueQuestions, setDueQuestions] = useState<ScheduledQuizResponse[]>([]);
   const [preferences, setPreferences] = useState<ReadingPreferences>(DEFAULT_PREFERENCES);
 
   const textRef = useRef<HTMLParagraphElement>(null);
@@ -264,7 +269,9 @@ export default function App(): React.JSX.Element {
 
   const refreshDueCards = useCallback(async () => {
     try {
-      setDueCards(await study.dueCards());
+      const { cards, questions } = await study.due();
+      setDueCards(cards);
+      setDueQuestions(questions);
     } catch {
       // A missing queue is not worth interrupting a reader over; the banner
       // simply stays hidden.
@@ -288,6 +295,16 @@ export default function App(): React.JSX.Element {
         .grade(cardId, rating)
         .then(refreshDueCards)
         .catch((caught: unknown) => setError(messageOf(caught)));
+    },
+    [study, refreshDueCards],
+  );
+
+  // The queue is re-read after answering, so the count reflects what is left.
+  const handleAnswerQuestion = useCallback(
+    async (quizItemId: string, chosenIndex: number) => {
+      const result = await study.answerQuestion(quizItemId, chosenIndex);
+      void refreshDueCards();
+      return result;
     },
     [study, refreshDueCards],
   );
@@ -322,8 +339,12 @@ export default function App(): React.JSX.Element {
         {!openDocument && !isFetching && (
           <DuePanel
             cards={dueCards}
+            questions={dueQuestions}
             onGrade={handleGrade}
+            onAnswer={handleAnswerQuestion}
             onSpeakCard={(front, back) => void cardSpeaker.speakCard(front, back)}
+            onSpeakQuestion={(stem, options) => void cardSpeaker.speakQuestion(stem, options)}
+            onSpeakAnswer={(answer, rationale) => void cardSpeaker.speakAnswer(answer, rationale)}
           />
         )}
 

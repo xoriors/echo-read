@@ -55,6 +55,31 @@ export interface ExplanationAttempt {
   feedback: ExplanationFeedback;
 }
 
+/** A question as stored, with where the schedule has it. */
+export interface ScheduledQuizItem extends QuizItem {
+  id: string;
+  documentTitle: string;
+  dueAt: string | null;
+  stability: number | null;
+  difficulty: number | null;
+}
+
+/** Everything waiting for one learner, of either kind. */
+export interface DueItems {
+  cards: ScheduledCard[];
+  questions: ScheduledQuizItem[];
+}
+
+export interface QuizGrade {
+  ownerId: string;
+  quizItemId: string;
+  chosenIndex: number;
+  correct: boolean;
+  stability: number;
+  difficulty: number;
+  dueAt: string;
+}
+
 export interface ReviewGrade {
   ownerId: string;
   cardId: string;
@@ -85,6 +110,9 @@ export interface StudyRepository {
   /** Cards due now, across every document this owner has. */
   dueCards(ownerId: string, now: string, limit: number): Promise<ScheduledCard[]>;
 
+  /** Questions due now. Same rule, the other half of the pack. */
+  dueQuizItems(ownerId: string, now: string, limit: number): Promise<ScheduledQuizItem[]>;
+
   /**
    * Records a grading and moves the card's schedule on.
    *
@@ -103,4 +131,12 @@ export interface StudyRepository {
 
   /** Keeps an answer and the feedback it drew. Append-only. */
   recordExplanationAttempt(attempt: ExplanationAttempt): Promise<void>;
+
+  /**
+   * Records an attempt at a question and moves its schedule on.
+   *
+   * Returns false when the question is not this owner's, exactly as
+   * {@link recordReview} does.
+   */
+  recordQuizAttempt(grade: QuizGrade): Promise<boolean>;
 }

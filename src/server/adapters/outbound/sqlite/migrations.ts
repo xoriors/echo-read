@@ -146,6 +146,44 @@ export const MIGRATIONS: readonly Migration[] = [
         ON explanation_attempt (self_explanation_id, created_at);
     `,
   },
+  {
+    id: 3,
+    name: 'scheduled_questions',
+    sql: `
+      -- Questions were graded in the browser and the result went nowhere: a
+      -- refresh lost it, and half the pack could never enter the schedule.
+      -- Spacing is one of only two techniques the evidence rates high utility,
+      -- and it covered flashcards only.
+      ALTER TABLE quiz_item ADD COLUMN owner_id TEXT REFERENCES owner(id) ON DELETE CASCADE;
+      ALTER TABLE quiz_item ADD COLUMN fsrs_stability REAL;
+      ALTER TABLE quiz_item ADD COLUMN fsrs_difficulty REAL;
+      ALTER TABLE quiz_item ADD COLUMN due_at TEXT;
+      ALTER TABLE quiz_item ADD COLUMN last_reviewed_at TEXT;
+
+      -- Questions written before this migration have no owner column filled
+      -- in; take it from the pack they belong to so they join the queue.
+      UPDATE quiz_item
+         SET owner_id = (SELECT p.owner_id FROM study_pack p WHERE p.id = quiz_item.study_pack_id),
+             due_at = datetime('now')
+       WHERE owner_id IS NULL;
+
+      -- The queue read path, mirroring flashcard_due_idx.
+      CREATE INDEX quiz_item_due_idx ON quiz_item (owner_id, due_at);
+
+      -- Append-only, like review. Which option was chosen is kept, not just
+      -- whether it was right: a distractor that keeps winning is the most
+      -- useful signal a generated question can give.
+      CREATE TABLE quiz_attempt (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        quiz_item_id  TEXT NOT NULL REFERENCES quiz_item(id) ON DELETE CASCADE,
+        owner_id      TEXT NOT NULL REFERENCES owner(id) ON DELETE CASCADE,
+        chosen_index  INTEGER NOT NULL,
+        correct       INTEGER NOT NULL,
+        attempted_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX quiz_attempt_item_idx ON quiz_attempt (quiz_item_id, attempted_at);
+    `,
+  },
 ];
 
 const LEDGER = `

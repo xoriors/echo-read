@@ -1,13 +1,22 @@
 import React, { useState } from 'react';
 
-import type { ScheduledCardResponse } from '../../../../../../shared/contracts/api';
+import type {
+  ReviewQuestionResponse,
+  ScheduledCardResponse,
+  ScheduledQuizResponse,
+} from '../../../../../../shared/contracts/api';
+import { describeDue } from '../../../../../domain/dueSession';
 import type { Rating } from '../../../../../domain/study';
-import { FlashcardReview } from './FlashcardReview';
+import { DueSession } from './DueSession';
 
 interface DuePanelProps {
   cards: readonly ScheduledCardResponse[];
+  questions: readonly ScheduledQuizResponse[];
   onGrade: (cardId: string, rating: Rating) => void;
+  onAnswer: (quizItemId: string, chosenIndex: number) => Promise<ReviewQuestionResponse>;
   onSpeakCard: (front: string, back: string) => void;
+  onSpeakQuestion: (stem: string, options: readonly string[]) => void;
+  onSpeakAnswer: (answer: string, rationale?: string) => void;
 }
 
 /**
@@ -23,25 +32,35 @@ interface DuePanelProps {
  * happens here, without opening a document, because the schedule is the thing
  * being followed and the file it came from is incidental to it.
  */
-export function DuePanel({ cards, onGrade, onSpeakCard }: DuePanelProps): React.JSX.Element | null {
+export function DuePanel({
+  cards,
+  questions,
+  onGrade,
+  onAnswer,
+  onSpeakCard,
+  onSpeakQuestion,
+  onSpeakAnswer,
+}: DuePanelProps): React.JSX.Element | null {
   const [reviewing, setReviewing] = useState(false);
 
-  if (cards.length === 0) return null;
+  if (cards.length + questions.length === 0) return null;
 
-  const plural = cards.length === 1 ? '' : 's';
-  const documents = new Set(cards.map((card) => card.documentTitle)).size;
+  const titles = new Set([
+    ...cards.map((card) => card.documentTitle),
+    ...questions.map((question) => question.documentTitle),
+  ]);
 
   return (
     <div className="bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-2xl mb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-gray-100">
-            {cards.length} card{plural} due
+            {describeDue(cards.length, questions.length)} due
           </h2>
           <p className="text-gray-500 text-sm mt-1">
-            {documents === 1
-              ? `From ${[...cards][0].documentTitle}`
-              : `Across ${documents} documents you have studied`}
+            {titles.size === 1
+              ? `From ${[...titles][0]}`
+              : `Across ${titles.size} documents you have studied`}
           </p>
         </div>
         <button
@@ -54,7 +73,16 @@ export function DuePanel({ cards, onGrade, onSpeakCard }: DuePanelProps): React.
 
       {reviewing && (
         <div className="mt-6 pt-6 border-t border-gray-700">
-          <FlashcardReview cards={cards} onGrade={onGrade} onSpeakCard={onSpeakCard} />
+          <DueSession
+            cards={cards}
+            questions={questions}
+            onGrade={onGrade}
+            onAnswer={onAnswer}
+            onSpeakCard={onSpeakCard}
+            onSpeakQuestion={onSpeakQuestion}
+            onSpeakAnswer={onSpeakAnswer}
+            onFinished={() => setReviewing(false)}
+          />
         </div>
       )}
     </div>

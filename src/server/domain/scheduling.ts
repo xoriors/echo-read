@@ -36,6 +36,22 @@ export function isRating(value: unknown): boolean {
 }
 
 /**
+ * The rating a multiple-choice attempt earns.
+ *
+ * A question is marked by the answer, not by the learner, so the four-way
+ * self-report a flashcard uses has nothing to come from. Binary is the honest
+ * mapping: right is a successful recall, wrong is a lapse.
+ *
+ * Deliberately not "easy" for a correct answer. One option in four is a 25%
+ * guess, so treating every correct answer as effortless would stretch
+ * intervals on questions the learner only half knows — the failure mode
+ * spacing exists to prevent.
+ */
+export function ratingForQuizAttempt(correct: boolean): number {
+  return correct ? RATINGS.good : RATINGS.again;
+}
+
+/**
  * Advances one card's schedule.
  *
  * A card with no stability yet has never been graded, so it starts from a

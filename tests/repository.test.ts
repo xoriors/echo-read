@@ -41,7 +41,10 @@ upgrading
 upgrading.prepare("INSERT INTO study_pack (id, document_id, owner_id, model) VALUES ('pold','dold','old','m')").run();
 
 const upgrade = migrate(upgrading);
-check(upgrade.applied.join(',') === '2', `an existing v1 database upgrades to v2 (applied ${upgrade.applied})`);
+check(
+  upgrade.applied.join(',') === '2,3',
+  `an existing v1 database upgrades through every later migration (applied ${upgrade.applied})`,
+);
 check(upgrade.skipped.join(',') === '1', 'migration 1 is not re-run over live data');
 
 const legacy = upgrading
@@ -126,6 +129,83 @@ const stolen = await repository.findExplanation('mallory', promptId);
 check(stolen === null, "another owner cannot fetch someone else's prompt");
 const unknown = await repository.findExplanation('alice', 'no-such-id');
 check(unknown === null, 'an unknown id is a miss, not a throw');
+
+// --- Questions are scheduled, and attempts are kept ----------------------
+// Before this, a question was graded in the browser and the result went
+// nowhere: a refresh lost it, and half the pack could never enter the
+// schedule.
+const withQuiz = await repository.save({
+  ownerId: 'alice',
+  title: 'Techniques',
+  kind: 'pdf',
+  pages,
+  sourceHash: 'hash-quiz',
+  pack: {
+    model: 'test-model',
+    preQuestions: [],
+    flashcards: [],
+    selfExplanationPrompts: [],
+    quizItems: [
+      {
+        stem: 'Which retained best?',
+        options: ['Massed', 'Distributed', 'Rereading', 'Highlighting'],
+        answerIndex: 1,
+        rationale: 'Delayed recall was higher.',
+        sourcePage: 1,
+      },
+    ],
+  },
+});
+
+const quizId = withQuiz.quizItems[0].id;
+const dueNow = await repository.dueQuizItems('alice', new Date().toISOString(), 50);
+check(dueNow.length === 1, `a new question is due immediately (got ${dueNow.length})`);
+check(dueNow[0]?.id === quizId, 'and it is the one just saved');
+check(dueNow[0]?.documentTitle === 'Techniques', 'carrying the document it came from');
+check(dueNow[0]?.options.length === 4, 'with its options');
+check(dueNow[0]?.stability === null, 'and no schedule yet');
+
+const scheduled = await repository.recordQuizAttempt({
+  ownerId: 'alice',
+  quizItemId: quizId,
+  chosenIndex: 1,
+  correct: true,
+  stability: 3.5,
+  difficulty: 5,
+  dueAt: '2099-01-01T00:00:00.000Z',
+});
+check(scheduled, 'an attempt is recorded');
+
+const stillDue = await repository.dueQuizItems('alice', new Date().toISOString(), 50);
+check(stillDue.length === 0, 'and the question leaves the queue until it is due again');
+
+const later = await repository.dueQuizItems('alice', '2099-06-01T00:00:00.000Z', 50);
+check(later.length === 1, 'coming back when the schedule says so');
+check(later[0]?.stability === 3.5, 'with the stability that was stored');
+
+// Owner scoping, the same rule grading a card follows.
+const stolen2 = await repository.recordQuizAttempt({
+  ownerId: 'mallory',
+  quizItemId: quizId,
+  chosenIndex: 0,
+  correct: false,
+  stability: 1,
+  difficulty: 1,
+  dueAt: '2099-01-01T00:00:00.000Z',
+});
+check(!stolen2, "another owner cannot answer someone else's question");
+
+const attemptRows = database
+  .prepare('SELECT chosen_index, correct FROM quiz_attempt')
+  .all() as unknown as { chosen_index: number; correct: number }[];
+check(attemptRows.length === 1, `only the legitimate attempt is stored (got ${attemptRows.length})`);
+check(attemptRows[0]?.chosen_index === 1, 'the option chosen is kept, not just whether it was right');
+check(attemptRows[0]?.correct === 1, 'along with the verdict');
+
+check(
+  (await repository.dueQuizItems('mallory', '2099-06-01T00:00:00.000Z', 50)).length === 0,
+  "and another owner's queue stays empty",
+);
 
 // --- Attempts are append-only --------------------------------------------
 const feedback = { covered: [], missed: [], incorrect: [], summary: 'ok' };

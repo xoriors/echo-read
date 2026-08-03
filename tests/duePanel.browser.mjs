@@ -28,19 +28,41 @@ const CARDS = [
   { id: 'c2', front: 'What is retrieval practice?', back: 'Recalling rather than rereading.', sourcePage: 2, documentTitle: 'Memory', dueAt: '2026-07-28T00:00:00Z' },
 ];
 
+const QUESTIONS = [
+  { id: 'q1', stem: 'Which schedule retained best?', options: ['Massed', 'Distributed', 'Rereading', 'Highlighting'], answerIndex: 1, rationale: 'Delayed recall was higher.', sourcePage: 3, documentTitle: 'Study techniques', dueAt: '2026-07-28T00:00:00Z' },
+];
+
 let queueCalls = 0;
 let graded = [];
+let answered = [];
 let queue = CARDS;
+let dueQuestions = QUESTIONS;
 
 await page.route('**/api/review-queue', async (route) => {
   queueCalls++;
-  await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ cards: queue }) });
+  await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ cards: queue, questions: dueQuestions }) });
 });
 
 await page.route('**/api/review-card', async (route) => {
   graded.push(route.request().postDataJSON());
   queue = queue.slice(1); // Grading it takes it out of the queue.
   await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ dueAt: '2026-08-02T00:00:00Z' }) });
+});
+
+await page.route('**/api/review-question', async (route) => {
+  const body = route.request().postDataJSON();
+  answered.push(body);
+  dueQuestions = [];
+  await route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      correct: body.chosenIndex === 1,
+      answerIndex: 1,
+      rationale: 'Delayed recall was higher.',
+      dueAt: '2026-08-06T00:00:00Z',
+    }),
+  });
 });
 
 await page.route('**/api/generate-speech', async (route) =>
@@ -56,7 +78,7 @@ const body = () => page.locator('#root').innerText();
 let text = await body();
 
 check(queueCalls > 0, `the due queue is fetched on arrival (${queueCalls} calls)`);
-check(text.includes('2 cards due'), 'and what is waiting is shown before anything is opened');
+check(text.includes('2 cards and 1 question due'), `both kinds are counted (got "${text.match(/[^\n]*due[^\n]*/)?.[0] ?? text.slice(0,60)}")`);
 check(text.includes('Across 2 documents'), 'spanning every document, not just one');
 check(await page.locator('button', { hasText: 'Review Now' }).count() === 1, 'with a way to start');
 
@@ -80,10 +102,28 @@ check(graded.length === 1, 'grading calls through');
 check(graded[0]?.cardId === 'c1', 'with the right card');
 check(graded[0]?.rating === 3, 'and the rating that was pressed');
 check(queueCalls >= 2, 'the queue is re-read after grading, so the count is live');
-check((await body()).includes('1 card due'), 'and the panel now says one card, singular');
+check((await body()).includes('1 card and 1 question due'), `the count drops and both kinds are named (got "${(await body()).match(/[^\n]*due[^\n]*/)?.[0] ?? "?"}")`);
+
+// --- Questions are reviewed in the same session ---------------------------
+// Interleaved rather than run as a second list: mixing practice types within a
+// session is the point, and it is what the browser has to actually do.
+text = await body();
+check(text.includes('Which schedule retained best?'), 'the session moves straight on to a question — interleaved, not appended');
+check(!text.includes('Delayed recall was higher.'), 'with nothing revealed before an attempt');
+
+await page.locator('button', { hasText: 'Distributed' }).click();
+await page.waitForFunction(() => document.body.innerText.includes('Correct'));
+
+check(answered.length === 1, 'answering a question calls the server');
+check(answered[0]?.quizItemId === 'q1', 'with the question id');
+check(answered[0]?.chosenIndex === 1, 'and the option chosen — not a self-reported result');
+text = await body();
+check(text.includes('Delayed recall was higher.'), 'the rationale appears after the attempt');
+check(/Next review/.test(text), 'and the next review date is shown — the interval is the mechanism');
 
 // --- Nothing due means no panel --------------------------------------------
 queue = [];
+dueQuestions = [];
 await page.reload();
 await page.waitForTimeout(800);
 text = await body();

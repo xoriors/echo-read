@@ -6,12 +6,13 @@ import {
   API_ROUTES,
   type ExplainCheckResponse,
   type ReviewCardResponse,
+  type ReviewQuestionResponse,
   type ReviewQueueResponse,
   type StudyPackResponse,
 } from '../../../../shared/contracts/api';
 import { ValidationError } from '../../../../shared/domain/errors';
 import type { DocumentPage } from '../../../../shared/domain/page';
-import { isRating, scheduleNext } from '../../../domain/scheduling';
+import { isRating, ratingForQuizAttempt, scheduleNext } from '../../../domain/scheduling';
 import type { StoredStudyPack, StudyRepository } from '../../../application/ports/studyRepository';
 import type { BuildStudyPackUseCase } from '../../../application/usecases/buildStudyPack';
 import type { CheckExplanationUseCase } from '../../../application/usecases/checkExplanation';
@@ -89,13 +90,15 @@ export function studyRouter({
   router.get(
     API_ROUTES.reviewQueue,
     route(async (_request, response) => {
-      const cards = await studyRepository.dueCards(
-        response.locals.ownerId,
-        new Date().toISOString(),
-        REVIEW_QUEUE_LIMIT,
-      );
+      const ownerId = response.locals.ownerId;
+      const now = new Date().toISOString();
 
-      response.json({ cards } satisfies ReviewQueueResponse);
+      const [cards, questions] = await Promise.all([
+        studyRepository.dueCards(ownerId, now, REVIEW_QUEUE_LIMIT),
+        studyRepository.dueQuizItems(ownerId, now, REVIEW_QUEUE_LIMIT),
+      ]);
+
+      response.json({ cards, questions } satisfies ReviewQueueResponse);
     }),
   );
 
@@ -138,6 +141,56 @@ export function studyRouter({
       if (!graded) throw new ValidationError('Unknown card');
 
       response.json({ dueAt: schedule.dueAt } satisfies ReviewCardResponse);
+    }),
+  );
+
+  router.post(
+    API_ROUTES.reviewQuestion,
+    route(async (request, response) => {
+      const ownerId = response.locals.ownerId;
+      const quizItemId = requireString(request.body, 'quizItemId', 'Question');
+      const chosenIndex: unknown = request.body?.chosenIndex;
+
+      if (typeof chosenIndex !== 'number' || !Number.isInteger(chosenIndex) || chosenIndex < 0) {
+        throw new ValidationError('Chosen option must be an option number');
+      }
+
+      // The stored question decides what is correct, not the caller. A client
+      // that reported its own result could hand itself an easy schedule, which
+      // is the same reason a card is scheduled from stored state.
+      const [item] = await studyRepository
+        .dueQuizItems(ownerId, FAR_FUTURE, REVIEW_QUEUE_LIMIT)
+        .then((items) => items.filter((candidate) => candidate.id === quizItemId));
+
+      if (!item) throw new ValidationError('Unknown question');
+
+      const correct = chosenIndex === item.answerIndex;
+      const schedule = scheduleNext({
+        stability: item.stability,
+        difficulty: item.difficulty,
+        lastReviewedAt: item.dueAt,
+        rating: ratingForQuizAttempt(correct),
+        now: new Date(),
+      });
+
+      const recorded = await studyRepository.recordQuizAttempt({
+        ownerId,
+        quizItemId,
+        chosenIndex,
+        correct,
+        stability: schedule.stability,
+        difficulty: schedule.difficulty,
+        dueAt: schedule.dueAt,
+      });
+
+      if (!recorded) throw new ValidationError('Unknown question');
+
+      response.json({
+        correct,
+        answerIndex: item.answerIndex,
+        rationale: item.rationale,
+        dueAt: schedule.dueAt,
+      } satisfies ReviewQuestionResponse);
     }),
   );
 

@@ -23,6 +23,7 @@ export const API_ROUTES = {
   studyPack: '/api/study-pack',
   reviewQueue: '/api/review-queue',
   reviewCard: '/api/review-card',
+  reviewQuestion: '/api/review-question',
   explainCheck: '/api/explain-check',
 } as const;
 
@@ -120,8 +121,17 @@ export interface SelfExplanationPromptResponse {
   sourcePage?: number;
 }
 
+/** A question with its schedule, as the client needs to render and grade it. */
+export interface ScheduledQuizResponse extends QuizItem {
+  id: string;
+  documentTitle: string;
+  dueAt: string | null;
+}
+
 export interface ReviewQueueResponse {
   cards: ScheduledCardResponse[];
+  /** The other half of the pack. Questions are scheduled too, since v3. */
+  questions: ScheduledQuizResponse[];
 }
 
 export interface ReviewCardRequest {
@@ -131,6 +141,19 @@ export interface ReviewCardRequest {
 }
 
 export interface ReviewCardResponse {
+  dueAt: string;
+}
+
+export interface ReviewQuestionRequest {
+  quizItemId: string;
+  /** Which option was chosen. The server decides whether it was right. */
+  chosenIndex: number;
+}
+
+export interface ReviewQuestionResponse {
+  correct: boolean;
+  answerIndex: number;
+  rationale?: string;
   dueAt: string;
 }
 

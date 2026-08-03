@@ -3,6 +3,8 @@ import {
   type ExplainCheckRequest,
   type ExplainCheckResponse,
   type ReviewCardRequest,
+  type ReviewQuestionRequest,
+  type ReviewQuestionResponse,
   type ReviewCardResponse,
   type ReviewQueueResponse,
   type StudyPackRequest,
@@ -42,6 +44,14 @@ export class HttpStudyGateway implements StudyGateway {
     return this.api.post<ReviewCardResponse>(
       API_ROUTES.reviewCard,
       { cardId, rating } satisfies ReviewCardRequest,
+      CONTENT_RETRY_POLICY,
+    );
+  }
+
+  async answerQuestion(quizItemId: string, chosenIndex: number): Promise<ReviewQuestionResponse> {
+    return this.api.post<ReviewQuestionResponse>(
+      API_ROUTES.reviewQuestion,
+      { quizItemId, chosenIndex } satisfies ReviewQuestionRequest,
       CONTENT_RETRY_POLICY,
     );
   }
