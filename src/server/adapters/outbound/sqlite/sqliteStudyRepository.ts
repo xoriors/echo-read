@@ -10,6 +10,7 @@ import { isBloomLevel, type QuizItem } from '../../../../shared/domain/studyPack
 import type {
   ExplanationAttempt,
   ExplanationContext,
+  PushTarget,
   QuizGrade,
   ReviewGrade,
   ScheduledQuizItem,
@@ -343,6 +344,63 @@ export class SqliteStudyRepository implements StudyRepository {
         attempt.answer,
         JSON.stringify(attempt.feedback),
       );
+  }
+
+  async savePushSubscription(ownerId: string, endpoint: string): Promise<void> {
+    // A browser re-subscribing after a permission reset gets a new endpoint,
+    // but the same endpoint can also be offered twice; the conflict clause
+    // keeps that idempotent and re-points it if the owner changed.
+    this.databases
+      .get()
+      .prepare(
+        `INSERT INTO push_subscription (owner_id, endpoint) VALUES (?, ?)
+         ON CONFLICT(endpoint) DO UPDATE SET owner_id = excluded.owner_id`,
+      )
+      .run(ownerId, endpoint);
+  }
+
+  async deletePushSubscription(endpoint: string): Promise<void> {
+    this.databases.get().prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(endpoint);
+  }
+
+  async subscriptionsToRemind(now: string, notifiedBefore: string): Promise<PushTarget[]> {
+    const rows = this.databases
+      .get()
+      .prepare(
+        `SELECT s.owner_id, s.endpoint
+           FROM push_subscription s
+          WHERE (s.last_notified_at IS NULL OR s.last_notified_at < ?)
+            AND (
+              EXISTS (SELECT 1 FROM flashcard f
+                       WHERE f.owner_id = s.owner_id
+                         AND (f.due_at IS NULL OR f.due_at <= ?))
+              OR
+              EXISTS (SELECT 1 FROM quiz_item q
+                       WHERE q.owner_id = s.owner_id
+                         AND (q.due_at IS NULL OR q.due_at <= ?))
+            )`,
+      )
+      .all(notifiedBefore, now, now) as unknown as { owner_id: string; endpoint: string }[];
+
+    return rows.map((row) => ({ ownerId: row.owner_id, endpoint: row.endpoint }));
+  }
+
+  async markReminded(endpoints: readonly string[], at: string): Promise<void> {
+    if (endpoints.length === 0) return;
+
+    const database = this.databases.get();
+    const update = database.prepare(
+      'UPDATE push_subscription SET last_notified_at = ? WHERE endpoint = ?',
+    );
+
+    database.exec('BEGIN');
+    try {
+      for (const endpoint of endpoints) update.run(at, endpoint);
+      database.exec('COMMIT');
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   private load(

@@ -6,6 +6,7 @@ import { contentRouter, type ContentUseCases } from './contentRouter';
 import { errorMiddleware } from './errorMiddleware';
 import { ownerIdentity } from './ownerIdentity';
 import { speechRouter } from './speechRouter';
+import { pushRouter, type PushUseCases } from './pushRouter';
 import { studyRouter, type StudyUseCases } from './studyRouter';
 import { mountStaticSite } from './staticSite';
 
@@ -18,6 +19,7 @@ export interface HttpServerOptions {
   logger: Logger;
   isProduction: boolean;
   sessionSecret: string;
+  push: Omit<PushUseCases, 'studyRepository'>;
 }
 
 /**
@@ -30,6 +32,7 @@ export async function createHttpServer({
   logger,
   isProduction,
   sessionSecret,
+  push,
 }: HttpServerOptions): Promise<Express> {
   const app = express();
 
@@ -46,6 +49,7 @@ export async function createHttpServer({
       studyRepository,
     }),
   );
+  app.use(pushRouter({ ...push, studyRepository }));
 
   await mountStaticSite(app, { isProduction });
 

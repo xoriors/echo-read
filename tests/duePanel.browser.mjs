@@ -65,6 +65,12 @@ await page.route('**/api/review-question', async (route) => {
   });
 });
 
+// Reminders configured, so the opt-in appears. The subscription itself is not
+// exercised here — a real push subscription needs a real push service.
+await page.route('**/api/push/config', async (route) =>
+  route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ applicationServerKey: 'BGYBZ6AN89GwviorrBrArt_mEbT3RUOYTV2VdWApb7W6eUF0LHMPBIIQgHhTqZF19mybPkycsq6Zb0Y6W0lF4v8' }) }),
+);
+
 await page.route('**/api/generate-speech', async (route) =>
   route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ base64Audio: Buffer.alloc(48).toString('base64') }) }),
 );
@@ -81,6 +87,10 @@ check(queueCalls > 0, `the due queue is fetched on arrival (${queueCalls} calls)
 check(text.includes('2 cards and 1 question due'), `both kinds are counted (got "${text.match(/[^\n]*due[^\n]*/)?.[0] ?? text.slice(0,60)}")`);
 check(text.includes('Across 2 documents'), 'spanning every document, not just one');
 check(await page.locator('button', { hasText: 'Review Now' }).count() === 1, 'with a way to start');
+check(
+  await page.locator('button', { hasText: /Remind me when cards are due/ }).count() === 1,
+  'and reminders are offered here, beside the queue they are about',
+);
 
 // The answer must not be sitting there.
 check(!text.includes('Study spread over separate sessions'), 'no answer is visible before reviewing');

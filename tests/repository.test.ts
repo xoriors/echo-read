@@ -41,9 +41,10 @@ upgrading
 upgrading.prepare("INSERT INTO study_pack (id, document_id, owner_id, model) VALUES ('pold','dold','old','m')").run();
 
 const upgrade = migrate(upgrading);
+const afterFirst = MIGRATIONS.filter((m) => m.id > 1).map((m) => m.id);
 check(
-  upgrade.applied.join(',') === '2,3',
-  `an existing v1 database upgrades through every later migration (applied ${upgrade.applied})`,
+  upgrade.applied.join(',') === afterFirst.join(','),
+  `an existing v1 database upgrades through every later migration (applied ${upgrade.applied}, expected ${afterFirst})`,
 );
 check(upgrade.skipped.join(',') === '1', 'migration 1 is not re-run over live data');
 

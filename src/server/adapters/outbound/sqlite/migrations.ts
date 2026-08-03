@@ -184,6 +184,29 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX quiz_attempt_item_idx ON quiz_attempt (quiz_item_id, attempted_at);
     `,
   },
+  {
+    id: 4,
+    name: 'push_subscriptions',
+    sql: `
+      -- Where to reach a reader who does not have EchoRead open.
+      --
+      -- The endpoint is a bearer credential: anyone holding it can push to
+      -- that browser, which is why it is never logged and never returned to a
+      -- client. The subscription's encryption keys are deliberately NOT stored
+      -- — pushes carry no payload, so the server has no use for them, and the
+      -- safest place for a key is nowhere.
+      CREATE TABLE push_subscription (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_id          TEXT NOT NULL REFERENCES owner(id) ON DELETE CASCADE,
+        endpoint          TEXT NOT NULL UNIQUE,
+        created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+        -- Bounds nagging to once a day per browser, independently of how often
+        -- the reminder job happens to run.
+        last_notified_at  TEXT
+      );
+      CREATE INDEX push_subscription_owner_idx ON push_subscription (owner_id);
+    `,
+  },
 ];
 
 const LEDGER = `

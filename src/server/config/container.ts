@@ -17,6 +17,9 @@ import { SpeakTextUseCase } from '../application/usecases/speakText';
 import { SummarizeTextUseCase } from '../application/usecases/summarizeText';
 import { BuildStudyPackUseCase } from '../application/usecases/buildStudyPack';
 import { CheckExplanationUseCase } from '../application/usecases/checkExplanation';
+import { SendRemindersUseCase } from '../application/usecases/sendReminders';
+import { VapidPushSender } from '../adapters/outbound/push/vapidPushSender';
+import type { PushSender } from '../application/ports/pushSender';
 import type { StudyRepository } from '../application/ports/studyRepository';
 import type { ServerConfig } from './environment';
 
@@ -32,8 +35,10 @@ export interface ServerContainer {
     speakText: SpeakTextUseCase;
     buildStudyPack: BuildStudyPackUseCase;
     checkExplanation: CheckExplanationUseCase;
+    sendReminders: SendRemindersUseCase;
   };
   studyRepository: StudyRepository;
+  pushSender: PushSender;
 }
 
 /**
@@ -85,6 +90,9 @@ export function createServerContainer(config: ServerConfig): ServerContainer {
     logger,
   );
 
+  const studyRepository = new SqliteStudyRepository(database);
+  const pushSender = new VapidPushSender(config.vapidPrivateKey, config.vapidSubject, logger);
+
   return {
     logger,
     database,
@@ -96,7 +104,9 @@ export function createServerContainer(config: ServerConfig): ServerContainer {
       speakText: new SpeakTextUseCase(synthesizer),
       buildStudyPack: new BuildStudyPackUseCase(analyzer, logger),
       checkExplanation: new CheckExplanationUseCase(analyzer, logger),
+      sendReminders: new SendRemindersUseCase(studyRepository, pushSender, logger),
     },
-    studyRepository: new SqliteStudyRepository(database),
+    studyRepository,
+    pushSender,
   };
 }

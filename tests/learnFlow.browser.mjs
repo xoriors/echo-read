@@ -27,6 +27,12 @@ const DOCUMENT = 'Spaced practice means distributing study across separate sessi
 // Count speech calls: in Learn mode there must be none. The document is not
 // meant to be narrated there, and a stray call is money as well as noise.
 let speechCalls = 0;
+// Reminders configured, so the opt-in appears. The subscription itself is not
+// exercised here — a real push subscription needs a real push service.
+await page.route('**/api/push/config', async (route) =>
+  route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ applicationServerKey: 'BGYBZ6AN89GwviorrBrArt_mEbT3RUOYTV2VdWApb7W6eUF0LHMPBIIQgHhTqZF19mybPkycsq6Zb0Y6W0lF4v8' }) }),
+);
+
 await page.route('**/api/generate-speech', async (route) => {
   speechCalls++;
   await route.fulfill({

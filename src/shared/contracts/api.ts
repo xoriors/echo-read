@@ -25,6 +25,10 @@ export const API_ROUTES = {
   reviewCard: '/api/review-card',
   reviewQuestion: '/api/review-question',
   explainCheck: '/api/explain-check',
+  pushConfig: '/api/push/config',
+  pushSubscribe: '/api/push/subscribe',
+  pushUnsubscribe: '/api/push/unsubscribe',
+  sendReminders: '/api/push/send-reminders',
 } as const;
 
 export interface FetchArticleRequest {
@@ -155,6 +159,19 @@ export interface ReviewQuestionResponse {
   answerIndex: number;
   rationale?: string;
   dueAt: string;
+}
+
+export interface PushConfigResponse {
+  /**
+   * The VAPID public key a browser subscribes with, or null when reminders are
+   * not configured on this server — so the UI can stay quiet rather than ask
+   * for a notification permission it cannot use.
+   */
+  applicationServerKey: string | null;
+}
+
+export interface PushSubscribeRequest {
+  endpoint: string;
 }
 
 export interface ExplainCheckRequest {

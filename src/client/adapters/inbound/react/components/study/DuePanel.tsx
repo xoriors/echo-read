@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import type {
   ReviewQuestionResponse,
@@ -7,6 +7,12 @@ import type {
 } from '../../../../../../shared/contracts/api';
 import { describeDue } from '../../../../../domain/dueSession';
 import type { Rating } from '../../../../../domain/study';
+import {
+  disableReminders,
+  enableReminders,
+  reminderState,
+  type ReminderState,
+} from '../../../../outbound/browser/pushSubscriptions';
 import { DueSession } from './DueSession';
 
 interface DuePanelProps {
@@ -71,6 +77,8 @@ export function DuePanel({
         </button>
       </div>
 
+      <ReminderToggle />
+
       {reviewing && (
         <div className="mt-6 pt-6 border-t border-gray-700">
           <DueSession
@@ -85,6 +93,58 @@ export function DuePanel({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+
+/**
+ * Reminders, offered where the schedule is.
+ *
+ * Not in a settings screen: the moment a reader sees "3 cards due" is the
+ * moment "tell me when they are" makes sense, and it is the only moment the
+ * browser will let the permission be asked for without it feeling arbitrary.
+ * The prompt can be asked once — a denial is permanent until someone digs into
+ * site settings — so it is never triggered on load, only by this button.
+ */
+function ReminderToggle(): React.JSX.Element | null {
+  const [state, setState] = useState<ReminderState | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void reminderState().then(setState);
+  }, []);
+
+  if (state === null || state === 'unsupported' || state === 'unconfigured') return null;
+
+  const toggle = async (): Promise<void> => {
+    setBusy(true);
+    try {
+      setState(state === 'on' ? await disableReminders() : await enableReminders());
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (state === 'blocked') {
+    return (
+      <p className="mt-3 text-sm text-gray-500">
+        Notifications are blocked for this site, so reminders cannot be sent. Your browser's site
+        settings can undo that.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3 flex items-center gap-2 text-sm">
+      <button
+        onClick={() => void toggle()}
+        disabled={busy}
+        className="text-gray-400 hover:text-gray-200 underline disabled:opacity-50 transition-colors"
+      >
+        {state === 'on' ? 'Turn off review reminders' : 'Remind me when cards are due'}
+      </button>
+      {state === 'on' && <span className="text-gray-600">· at most one a day</span>}
     </div>
   );
 }

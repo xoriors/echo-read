@@ -1,0 +1,43 @@
+# Sends review reminders once a day.
+#
+# The trigger lives here rather than in the app because the app scales to zero:
+# with `min_machines_running = 0`, a timer inside the server would only fire
+# while someone already had EchoRead open, which is exactly when a reminder is
+# pointless. An inbound request wakes the machine, so the trigger has to be an
+# inbound request — and a scheduled workflow is a free one.
+#
+# Requires two repository secrets:
+#   REMINDER_URL     https://echo-read.fly.dev/api/push/send-reminders
+#   REMINDER_SECRET  the same value as the app's REMINDER_SECRET
+name: Review reminders
+
+on:
+  schedule:
+    # 08:00 UTC. Spaced repetition works on days, not hours, so the exact time
+    # matters far less than it being the same one each day — and a reader who
+    # has already reviewed today simply has nothing due to be told about.
+    - cron: '0 8 * * *'
+  # So a run can be forced without waiting a day.
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminders
+        env:
+          REMINDER_URL: ${{ secrets.REMINDER_URL }}
+          REMINDER_SECRET: ${{ secrets.REMINDER_SECRET }}
+        run: |
+          if [ -z "$REMINDER_URL" ] || [ -z "$REMINDER_SECRET" ]; then
+            echo "REMINDER_URL or REMINDER_SECRET is not set; nothing to do."
+            exit 0
+          fi
+
+          # --max-time is generous: the first request after an idle period pays
+          # a cold start while the machine boots and opens the database.
+          response=$(curl -sS --max-time 120 --fail-with-body \
+            -X POST "$REMINDER_URL" \
+            -H "X-Reminder-Secret: $REMINDER_SECRET")
+
+          echo "$response"

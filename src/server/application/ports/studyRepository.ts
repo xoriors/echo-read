@@ -139,4 +139,24 @@ export interface StudyRepository {
    * {@link recordReview} does.
    */
   recordQuizAttempt(grade: QuizGrade): Promise<boolean>;
+
+  /** Remembers where to reach this browser. Re-subscribing is not a duplicate. */
+  savePushSubscription(ownerId: string, endpoint: string): Promise<void>;
+
+  /** Forgets an endpoint — asked to stop, or the push service said it is dead. */
+  deletePushSubscription(endpoint: string): Promise<void>;
+
+  /**
+   * Browsers worth reminding: subscribed, with something actually due, and not
+   * already told today. All three conditions belong in the query — a reminder
+   * about an empty queue is the fastest way to have notifications turned off.
+   */
+  subscriptionsToRemind(now: string, notifiedBefore: string): Promise<PushTarget[]>;
+
+  markReminded(endpoints: readonly string[], at: string): Promise<void>;
+}
+
+export interface PushTarget {
+  ownerId: string;
+  endpoint: string;
 }

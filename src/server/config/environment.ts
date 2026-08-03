@@ -15,6 +15,12 @@ export interface ServerConfig {
    * which also means restarting locally issues everyone a fresh identity.
    */
   sessionSecret: string;
+  /** VAPID private key (base64 PKCS8) for review reminders. Absent disables them. */
+  vapidPrivateKey?: string;
+  /** Contact address VAPID requires, so a push service can report abuse. */
+  vapidSubject: string;
+  /** Shared secret the reminder scheduler presents. Absent disables the route. */
+  reminderSecret?: string;
   /** Preference order for text generation; empty means "use the built-in list". */
   geminiTextModels: string[];
   /** Preference order for speech; empty means "use the built-in list". */
@@ -95,6 +101,9 @@ export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCo
     browserlessApiKey: readSecret(env, 'BROWSERLESS_API_KEY'),
     dataDir: readSecret(env, 'DATA_DIR') ?? (env.NODE_ENV === 'production' ? '/data' : '.data'),
     sessionSecret: sessionSecretFrom(env),
+    vapidPrivateKey: readSecret(env, 'VAPID_PRIVATE_KEY'),
+    vapidSubject: readSecret(env, 'VAPID_SUBJECT') ?? 'mailto:noreply@echo-read.fly.dev',
+    reminderSecret: readSecret(env, 'REMINDER_SECRET'),
     geminiTextModels: readModelList(env, 'GEMINI_TEXT_MODELS'),
     geminiTtsModels: readModelList(env, 'GEMINI_TTS_MODELS'),
   };

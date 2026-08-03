@@ -2,7 +2,11 @@ import { rmSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-import { migrate } from '../src/server/adapters/outbound/sqlite/migrations';
+import { MIGRATIONS, migrate } from '../src/server/adapters/outbound/sqlite/migrations';
+
+// Derived from the list, not hard-coded: an assertion that has to be edited
+// every time a migration is added is one that gets edited without being read.
+const ALL_IDS = MIGRATIONS.map((m) => m.id).sort((a, b) => a - b);
 
 const PATH = path.join(process.cwd(), '.test-data-migrations.db');
 rmSync(PATH, { force: true });
@@ -18,7 +22,10 @@ const check = (ok: boolean, label: string): void => {
 const first = new DatabaseSync(PATH);
 first.exec('PRAGMA foreign_keys = ON');
 const one = migrate(first);
-check(one.applied.join(',') === '1,2,3', `first run applies every migration (applied ${one.applied})`);
+check(
+  one.applied.join(',') === ALL_IDS.join(','),
+  `first run applies every migration (applied ${one.applied}, expected ${ALL_IDS})`,
+);
 
 first.prepare("INSERT INTO owner (id) VALUES ('o1')").run();
 first
@@ -44,16 +51,26 @@ const second = new DatabaseSync(PATH);
 second.exec('PRAGMA foreign_keys = ON');
 const two = migrate(second);
 check(two.applied.length === 0, `second run applies nothing (applied ${JSON.stringify(two.applied)})`);
-check(two.skipped.join(',') === '1,2,3', `every migration stays recorded (skipped ${two.skipped})`);
+check(
+  two.skipped.join(',') === ALL_IDS.join(','),
+  `every migration stays recorded (skipped ${two.skipped})`,
+);
 
 const ledger = second.prepare('SELECT id, name FROM schema_migration ORDER BY id').all() as {
   id: number;
   name: string;
 }[];
-check(ledger.length === 3, `ledger holds one row per migration (got ${ledger.length})`);
+check(
+  ledger.length === ALL_IDS.length,
+  `ledger holds one row per migration (got ${ledger.length} of ${ALL_IDS.length})`,
+);
 check(ledger[0]?.name === 'study_foundation', 'migration 1 keeps its recorded name');
 check(ledger[1]?.name === 'self_explanation', 'migration 2 is recorded');
 check(ledger[2]?.name === 'scheduled_questions', 'migration 3 is recorded');
+check(
+  ledger.every((row, i) => row.id === MIGRATIONS[i].id && row.name === MIGRATIONS[i].name),
+  'and every id/name matches the list, in order',
+);
 
 const kept = second.prepare("SELECT answer FROM explanation_attempt WHERE self_explanation_id = 'e1'").all();
 check(kept.length === 1, 'data written between runs survives the second migrate');
