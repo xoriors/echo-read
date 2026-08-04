@@ -12,12 +12,22 @@
 name: Review reminders
 
 on:
-  schedule:
-    # 08:00 UTC. Spaced repetition works on days, not hours, so the exact time
-    # matters far less than it being the same one each day — and a reader who
-    # has already reviewed today simply has nothing due to be told about.
-    - cron: '0 8 * * *'
-  # So a run can be forced without waiting a day.
+  # The daily schedule is off for now, deliberately.
+  #
+  # Reminders have not been delivered end to end yet — a real push needs a real
+  # browser subscription, which nothing here has made — so a daily job would be
+  # firing untested code at whoever has opted in. Uncomment the two lines below
+  # once a manual run has been seen to work.
+  #
+  # 08:00 UTC. Spaced repetition works on days, not hours, so the exact time
+  # matters far less than it being the same one each day, and a reader who has
+  # already reviewed has nothing due to be told about.
+  #
+  # schedule:
+  #   - cron: '0 8 * * *'
+
+  # Still available: Actions → Review reminders → Run workflow. Nothing fires
+  # on its own, but a run can be triggered by hand to test the whole path.
   workflow_dispatch:
 
 jobs:
