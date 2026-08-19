@@ -9,7 +9,8 @@
     "start": "node dist/server.cjs",
     "typecheck": "tsc --noEmit",
     "test": "node tests/run.mjs",
-    "test:live": "tsx tests/explainLive.test.ts"
+    "test:live": "tsx tests/explainLive.test.ts",
+    "test:assets": "curl -sSL -o tests/pages/tailwind-local.js https://cdn.tailwindcss.com"
   },
   "dependencies": {
     "@google/genai": "^1.27.0",

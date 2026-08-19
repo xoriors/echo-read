@@ -35,3 +35,6 @@ dist-ssr
 # Scratch databases the test suite creates.
 .test-data/
 .test-data-migrations.db*
+
+# Downloaded for the layout tests; not part of the app.
+tests/pages/tailwind-local.js
