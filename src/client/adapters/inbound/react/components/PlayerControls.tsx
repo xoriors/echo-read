@@ -51,11 +51,30 @@ export function PlayerControls({
   const hasMoreParts = narration.chunkIndex + 1 < narration.chunkCount;
 
   return (
-    <div
-      className={`sticky bottom-4 w-full max-w-4xl bg-gray-800/80 backdrop-blur-sm p-5 rounded-2xl shadow-2xl transition-opacity duration-500 ${
-        enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'
-      }`}
-    >
+    // Opaque, dimmed on the inside, and only sticky where it is actually a bar.
+    //
+    // It used to be `bg-gray-800/80` with `opacity-50` while disabled, which
+    // multiply to a 40% surface. Sticky means it floats over the page, so that
+    // background is not decoration — it is the only thing stopping the content
+    // underneath being read through it. While audio was being prepared, a
+    // phone showed the transport and the source form legible on top of each
+    // other.
+    //
+    // Disabled now dims the controls inside an opaque panel. Putting `opacity`
+    // on the panel dims its background too, which is the part that has to stay
+    // solid.
+    //
+    // And it only sticks from `sm` up. These controls sit in two rows on a
+    // wide screen and eight on a phone, where the panel is most of the
+    // viewport tall — something that size cannot float above a page, it just
+    // covers it. Below `sm` it stays in the flow, where scrolling reaches it
+    // and nothing hides behind it.
+    <div className="relative sm:sticky sm:bottom-4 w-full max-w-4xl bg-gray-800 border border-gray-700 backdrop-blur-sm p-5 rounded-2xl shadow-2xl">
+      <div
+        className={`transition-opacity duration-500 ${
+          enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'
+        }`}
+      >
       <div className="flex items-center justify-center space-x-6 mb-4">
         <TransportButton onClick={onRewind} disabled={!enabled} label="Rewind 10 seconds">
           <RewindIcon />
@@ -149,6 +168,7 @@ export function PlayerControls({
           options={SLEEP_TIMER_OPTIONS.map(({ minutes, label }) => ({ value: minutes, label }))}
           onChange={(value) => onPreferencesChange({ sleepTimerMinutes: Number(value) })}
         />
+        </div>
       </div>
     </div>
   );
