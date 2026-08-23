@@ -107,7 +107,18 @@ having: a test builds a container from fakes and exercises the real use cases.
   `ContentGateway`, a use case on the server, a route, and a form component.
   The player is untouched.
 - **A different speech provider** — implement `SpeechSynthesizer`, wire it in
-  the server container. Nothing else changes.
-- **Persistent history** — implement `LibraryRepository` against
-  `localStorage` or an API and swap it in the client container. The cap and
+  the server container. Nothing else changes. For an on-device model the port
+  to implement is `SpeechGateway` on the *client* side instead; see
+  [TEXT-TO-SPEECH-ALTERNATIVES.md](./TEXT-TO-SPEECH-ALTERNATIVES.md).
+- **A different storage backend** — implement `LibraryRepository` and swap it
+  in the client container, as `LocalStorageLibraryRepository` does. The cap and
   de-duplication rules stay in `client/domain/library.ts`.
+
+## Further reading
+
+- [TEXT-TO-SPEECH.md](./TEXT-TO-SPEECH.md) — how narration actually works
+  today: chunking, the model fallback chain, the headerless-PCM decode, and
+  what leaves the device.
+- [TEXT-TO-SPEECH-ALTERNATIVES.md](./TEXT-TO-SPEECH-ALTERNATIVES.md) — open and
+  on-device models, and what it would take to keep narration off a provider's
+  servers.
