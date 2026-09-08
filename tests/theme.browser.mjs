@@ -61,6 +61,11 @@ const snapshot = () =>
       bg,
       luminance: parts.length >= 3 ? parts[0] + parts[1] + parts[2] : -1,
       logoStroke: logo ? getComputedStyle(logo).stroke || logo.getAttribute('stroke') : null,
+      logoStrokeRgb: (() => {
+        const raw = logo ? getComputedStyle(logo).stroke || logo.getAttribute('stroke') || '' : '';
+        const rgb = /rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(raw);
+        return rgb ? [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])] : null;
+      })(),
       favicon: icon?.getAttribute('href') ?? null,
       themeColor: meta?.getAttribute('content') ?? null,
       font: pageStyle?.fontFamily ?? '',
@@ -73,6 +78,10 @@ check(dark.theme === 'dark', `default theme is dark (got ${dark.theme})`);
 check(String(dark.colorScheme).includes('dark'), `color-scheme is dark (got ${dark.colorScheme})`);
 check(dark.luminance >= 0 && dark.luminance < 120, `page background is dark (luminance ${dark.luminance})`);
 check(!!dark.logoStroke, 'the logo is on the page');
+check(
+  Array.isArray(dark.logoStrokeRgb) && dark.logoStrokeRgb.join(',') === '156,163,175',
+  `dark logo stroke is gray-400 (got ${dark.logoStrokeRgb})`,
+);
 check(dark.favicon === '/favicon.svg', `dark favicon (got ${dark.favicon})`);
 check(dark.themeColor === '#111827', `dark theme-color (got ${dark.themeColor})`);
 check(/Plex|sans-serif|system-ui|ui-sans-serif/i.test(dark.font), `a sans stack is in use (got ${dark.font})`);
@@ -89,6 +98,14 @@ check(String(light.colorScheme).includes('light'), `color-scheme is light (got $
 check(light.stored === 'light', 'the choice is written to storage');
 check(light.luminance > 600, `page background is light (luminance ${light.luminance})`);
 check(light.luminance > dark.luminance, 'light is actually lighter than dark');
+check(
+  Array.isArray(light.logoStrokeRgb) && light.logoStrokeRgb.join(',') === '75,85,99',
+  `light logo stroke is gray-600 (got ${light.logoStrokeRgb})`,
+);
+check(
+  JSON.stringify(light.logoStrokeRgb) !== JSON.stringify(dark.logoStrokeRgb),
+  'logo stroke actually changes between themes',
+);
 check(light.favicon === '/favicon-light.svg', `light favicon (got ${light.favicon})`);
 check(light.themeColor === '#f9fafb', `light theme-color (got ${light.themeColor})`);
 check(
