@@ -26,6 +26,7 @@ interface DocumentPanelProps {
   onSeekToCharacter: (characterIndex: number) => void;
 }
 
+/** The opened document: text, share/save/download, and optional citations. */
 export function DocumentPanel({
   text,
   sources,

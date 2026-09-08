@@ -4,6 +4,7 @@ import type { SourceFormProps } from './SourceFormProps';
 import { PrimaryButton, TEXT_INPUT_CLASS } from '../controls';
 import { LoaderIcon } from '../icons';
 
+/** YouTube URL in, grounded analysis out — no local file path. */
 export function VideoSourceForm({ controller, busy, canSubmit, onSubmit }: SourceFormProps): React.JSX.Element {
   return (
     <div className="space-y-4">

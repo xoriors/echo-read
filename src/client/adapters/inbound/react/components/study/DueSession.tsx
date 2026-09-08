@@ -266,6 +266,7 @@ function DueQuestion({
   );
 }
 
+/** Neutral until a verdict; then the key and the miss, everything else muted. */
 function optionStyle(
   result: ReviewQuestionResponse | null,
   option: number,

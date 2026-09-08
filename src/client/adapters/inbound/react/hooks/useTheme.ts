@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { nextTheme, type Theme } from '../../../../domain/theme';
 import { applyTheme, hydrateTheme, persistTheme } from '../themeDom';
 
+/** Hydrates from storage on first render and writes through on each toggle. */
 export function useTheme(): { theme: Theme; toggleTheme: () => void } {
   const [theme, setTheme] = useState<Theme>(hydrateTheme);
 

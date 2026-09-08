@@ -174,6 +174,7 @@ export function PlayerControls({
   );
 }
 
+/** Icon-only skip/stop/rewind; the accessible name is `label`, not the glyph. */
 function TransportButton({
   onClick,
   disabled,
@@ -200,6 +201,7 @@ function TransportButton({
   );
 }
 
+/** Reading size as a range, with small/large A as the ends of the scale. */
 function FontSizeControl({
   value,
   onChange,

@@ -3,6 +3,7 @@ import React from 'react';
 import { HistoryIcon, LogoIcon } from './icons';
 import { ThemeToggle } from './ThemeToggle';
 
+/** Wordmark, palette switch, and the door into history. */
 export function AppHeader({ onOpenLibrary }: { onOpenLibrary: () => void }): React.JSX.Element {
   return (
     <header className="mb-8 relative">

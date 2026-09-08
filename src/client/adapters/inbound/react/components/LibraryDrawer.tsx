@@ -68,6 +68,7 @@ export function LibraryDrawer({ library, open, onClose, onOpenEntry }: LibraryDr
   );
 }
 
+/** History vs Read Later; selected is a filled chip, not an underline. */
 function TabButton({
   selected,
   onClick,
@@ -90,6 +91,7 @@ function TabButton({
   );
 }
 
+/** One saved document; time-of-day in history, calendar date on Read Later. */
 function EntryCard({
   entry,
   tab,

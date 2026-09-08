@@ -7,6 +7,7 @@ import {
 } from '../../../../domain/documentMode';
 import { SegmentedButton } from './controls';
 
+/** Full / short / long / learn, as one exclusive control. */
 export function ReadModeSelector({
   readMode,
   onChange,

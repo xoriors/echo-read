@@ -10,6 +10,7 @@ import { PrimaryButton, SegmentedButton, TEXT_INPUT_CLASS } from '../controls';
 import { LoaderIcon } from '../icons';
 import { ReadModeSelector } from '../ReadModeSelector';
 
+/** File or URL, plus an optional page/chapter range, then a read mode. */
 export function PdfSourceForm({ controller, busy, canSubmit, onSubmit }: SourceFormProps): React.JSX.Element {
   const { pdf } = controller.form;
 
@@ -66,6 +67,7 @@ export function PdfSourceForm({ controller, busy, canSubmit, onSubmit }: SourceF
   );
 }
 
+/** Hidden file input driven by a labelled button so the chosen name can be shown. */
 function PdfFilePicker({
   controller,
   busy,
@@ -93,6 +95,7 @@ function PdfFilePicker({
   );
 }
 
+/** Entire document unless a start/end range is asked for. */
 function PdfRangeSelector({
   controller,
   busy,
