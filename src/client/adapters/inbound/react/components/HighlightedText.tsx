@@ -65,7 +65,7 @@ export const HighlightedText = forwardRef<HTMLParagraphElement, HighlightedTextP
       {...seekHandlers}
       title={tapToSeek ? 'Tap any word to play from there' : undefined}
       className={
-        'text-gray-300 leading-relaxed whitespace-pre-wrap transition-all duration-200' +
+        'text-chrome leading-relaxed whitespace-pre-wrap transition-all duration-200' +
         (tapToSeek ? ' cursor-pointer touch-manipulation' : '')
       }
       style={{ fontSize: `${fontSize}px` }}

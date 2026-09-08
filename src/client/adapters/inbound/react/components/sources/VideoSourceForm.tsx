@@ -7,7 +7,7 @@ import { LoaderIcon } from '../icons';
 export function VideoSourceForm({ controller, busy, canSubmit, onSubmit }: SourceFormProps): React.JSX.Element {
   return (
     <div className="space-y-4">
-      <p className="text-gray-300 text-lg">
+      <p className="text-chrome text-lg">
         Paste a YouTube video URL below to generate a detailed AI summary, key topics, and takeaways of the video&apos;s
         content using Google Search grounding.
       </p>

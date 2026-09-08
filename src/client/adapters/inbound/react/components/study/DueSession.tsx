@@ -51,8 +51,8 @@ export function DueSession({
   if (items.length === 0 || index >= items.length) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-200 text-lg">Everything due is done.</p>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-secondary text-lg">Everything due is done.</p>
+        <p className="text-subtle text-sm mt-1">
           Come back when the schedule brings these round again.
         </p>
       </div>
@@ -67,7 +67,7 @@ export function DueSession({
 
   return (
     <div>
-      <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
+      <div className="flex justify-between items-center text-sm text-subtle mb-2">
         <span>
           {index + 1} of {items.length} · {item.kind === 'card' ? 'card' : 'question'}
         </span>
@@ -116,13 +116,13 @@ function DueCard({
 
   return (
     <div>
-      <div className="bg-gray-700/50 border border-gray-600 rounded-xl p-6 min-h-[10rem] flex flex-col justify-center">
-        <p className="text-xl text-gray-100 text-center">{card.front}</p>
+      <div className="bg-raised/50 border border-line-strong rounded-xl p-6 min-h-[10rem] flex flex-col justify-center">
+        <p className="text-xl text-fg text-center">{card.front}</p>
         {revealed && (
-          <div className="mt-5 pt-5 border-t border-gray-600">
-            <p className="text-lg text-gray-200 text-center">{card.back}</p>
+          <div className="mt-5 pt-5 border-t border-line-strong">
+            <p className="text-lg text-secondary text-center">{card.back}</p>
             {card.sourceQuote && (
-              <p className="mt-3 text-sm text-gray-400 italic text-center">“{card.sourceQuote}”</p>
+              <p className="mt-3 text-sm text-muted italic text-center">“{card.sourceQuote}”</p>
             )}
           </div>
         )}
@@ -139,7 +139,7 @@ function DueCard({
             </button>
             <button
               onClick={() => onSpeakCard(card.front, card.back)}
-              className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+              className="bg-raised hover:bg-raised-hover text-secondary py-2 px-4 rounded-lg transition-colors"
               title="Question, a pause to recall, then the answer"
             >
               Listen
@@ -150,7 +150,7 @@ function DueCard({
             <button
               key={rating}
               onClick={() => onGrade(rating)}
-              className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+              className="bg-raised hover:bg-raised-hover text-secondary py-2 px-4 rounded-lg transition-colors"
             >
               {RATING_LABEL[rating]}
             </button>
@@ -199,8 +199,8 @@ function DueQuestion({
 
   return (
     <div>
-      <div className="bg-gray-700/50 border border-gray-600 rounded-xl p-6">
-        <p className="text-lg text-gray-100 mb-4">{question.stem}</p>
+      <div className="bg-raised/50 border border-line-strong rounded-xl p-6">
+        <p className="text-lg text-fg mb-4">{question.stem}</p>
 
         <div className="space-y-2">
           {question.options.map((option, optionIndex) => (
@@ -222,14 +222,14 @@ function DueQuestion({
         {error && <p className="mt-3 text-amber-400">{error}</p>}
 
         {result && (
-          <div className="mt-5 pt-5 border-t border-gray-600">
+          <div className="mt-5 pt-5 border-t border-line-strong">
             <p className={result.correct ? 'text-green-400 font-semibold' : 'text-amber-400 font-semibold'}>
               {result.correct
                 ? 'Correct'
                 : `Not quite — the answer is “${question.options[result.answerIndex]}”`}
             </p>
-            {result.rationale && <p className="mt-2 text-gray-300">{result.rationale}</p>}
-            <p className="mt-2 text-sm text-gray-500">Next review {relativeDue(result.dueAt)}.</p>
+            {result.rationale && <p className="mt-2 text-chrome">{result.rationale}</p>}
+            <p className="mt-2 text-sm text-subtle">Next review {relativeDue(result.dueAt)}.</p>
           </div>
         )}
       </div>
@@ -238,7 +238,7 @@ function DueQuestion({
         {!result ? (
           <button
             onClick={() => onSpeakQuestion(question.stem, question.options)}
-            className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+            className="bg-raised hover:bg-raised-hover text-secondary py-2 px-4 rounded-lg transition-colors"
             title="Reads the question and the options, and stops there"
           >
             Listen
@@ -249,7 +249,7 @@ function DueQuestion({
               onClick={() =>
                 onSpeakAnswer(question.options[result.answerIndex], result.rationale)
               }
-              className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+              className="bg-raised hover:bg-raised-hover text-secondary py-2 px-4 rounded-lg transition-colors"
             >
               Listen to Answer
             </button>
@@ -271,10 +271,10 @@ function optionStyle(
   option: number,
   chosen: number | null,
 ): string {
-  if (!result) return 'bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700 cursor-pointer';
+  if (!result) return 'bg-surface border-line-strong text-secondary hover:bg-raised cursor-pointer';
   if (option === result.answerIndex) return 'bg-green-900/40 border-green-600 text-green-200';
   if (option === chosen) return 'bg-red-900/30 border-red-700 text-red-200';
-  return 'bg-gray-800 border-gray-700 text-gray-400';
+  return 'bg-surface border-line text-muted';
 }
 
 /**

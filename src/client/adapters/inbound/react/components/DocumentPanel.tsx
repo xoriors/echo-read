@@ -45,16 +45,16 @@ export function DocumentPanel({
   onSeekToCharacter,
 }: DocumentPanelProps): React.JSX.Element {
   return (
-    <div className="bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-2xl mb-8">
+    <div className="bg-surface p-6 sm:p-8 rounded-2xl shadow-2xl mb-8">
       {videoSource && (
-        <div className="mb-6 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
-          <h3 className="text-xl font-semibold text-gray-200 mb-1">Analyzing Video:</h3>
+        <div className="mb-6 p-4 bg-raised/50 rounded-lg border border-line-strong">
+          <h3 className="text-xl font-semibold text-secondary mb-1">Analyzing Video:</h3>
           <SourceLink source={videoSource} className="break-all" />
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 border-b border-gray-700 pb-2 gap-4">
-        <h2 className="text-3xl font-bold text-gray-100 break-words">{documentTitle(kind, readMode)}</h2>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 border-b border-line pb-2 gap-4">
+        <h2 className="text-3xl font-bold text-fg break-words">{documentTitle(kind, readMode)}</h2>
         <div className="flex flex-wrap gap-2 mt-1 sm:mt-0">
           {shareableLink && (
             <ToolbarButton onClick={onCopyLink} title="Copy Link/Path" active={linkCopied}>
@@ -74,7 +74,7 @@ export function DocumentPanel({
       </div>
 
       {/* `title` is hover-only, so touch users need the hint on the page. */}
-      {tapToSeek && <p className="text-sm text-gray-500 mb-3">Tap any word to play from there.</p>}
+      {tapToSeek && <p className="text-sm text-subtle mb-3">Tap any word to play from there.</p>}
 
       <HighlightedText
         ref={textRef}
@@ -88,7 +88,7 @@ export function DocumentPanel({
 
       {sources.length > 0 && (
         <div className="mt-6">
-          <h3 className="text-xl font-semibold text-gray-200 mb-2">Sources:</h3>
+          <h3 className="text-xl font-semibold text-secondary mb-2">Sources:</h3>
           <ul className="list-disc list-inside space-y-1">
             {sources.map((source) => (
               <li key={source.uri} className="text-lg">

@@ -57,13 +57,13 @@ export function DuePanel({
   ]);
 
   return (
-    <div className="bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-2xl mb-8">
+    <div className="bg-surface p-6 sm:p-8 rounded-2xl shadow-2xl mb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-gray-100">
+          <h2 className="text-xl font-semibold text-fg">
             {describeDue(cards.length, questions.length)} due
           </h2>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-subtle text-sm mt-1">
             {titles.size === 1
               ? `From ${[...titles][0]}`
               : `Across ${titles.size} documents you have studied`}
@@ -80,7 +80,7 @@ export function DuePanel({
       <ReminderToggle />
 
       {reviewing && (
-        <div className="mt-6 pt-6 border-t border-gray-700">
+        <div className="mt-6 pt-6 border-t border-line">
           <DueSession
             cards={cards}
             questions={questions}
@@ -128,7 +128,7 @@ function ReminderToggle(): React.JSX.Element | null {
 
   if (state === 'blocked') {
     return (
-      <p className="mt-3 text-sm text-gray-500">
+      <p className="mt-3 text-sm text-subtle">
         Notifications are blocked for this site, so reminders cannot be sent. Your browser's site
         settings can undo that.
       </p>
@@ -140,11 +140,11 @@ function ReminderToggle(): React.JSX.Element | null {
       <button
         onClick={() => void toggle()}
         disabled={busy}
-        className="text-gray-400 hover:text-gray-200 underline disabled:opacity-50 transition-colors"
+        className="text-muted hover:text-secondary underline disabled:opacity-50 transition-colors"
       >
         {state === 'on' ? 'Turn off review reminders' : 'Remind me when cards are due'}
       </button>
-      {state === 'on' && <span className="text-gray-600">· at most one a day</span>}
+      {state === 'on' && <span className="text-subtle">· at most one a day</span>}
     </div>
   );
 }

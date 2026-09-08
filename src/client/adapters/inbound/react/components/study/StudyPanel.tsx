@@ -59,9 +59,9 @@ export function StudyPanel({
 
   if (isGenerating) {
     return (
-      <div className="bg-gray-800 p-6 rounded-2xl text-center text-gray-300">
+      <div className="bg-surface p-6 rounded-2xl text-center text-chrome">
         <p className="text-lg">Building your study pack…</p>
-        <p className="text-sm text-gray-500 mt-2">
+        <p className="text-sm text-subtle mt-2">
           Longer documents are read in batches, so this can take a while.
         </p>
       </div>
@@ -70,9 +70,9 @@ export function StudyPanel({
 
   if (!pack) {
     return (
-      <div className="bg-gray-800 p-6 rounded-2xl text-center">
-        <p className="text-gray-300 text-lg mb-1">Turn this document into practice.</p>
-        <p className="text-gray-500 text-sm mb-4">
+      <div className="bg-surface p-6 rounded-2xl text-center">
+        <p className="text-chrome text-lg mb-1">Turn this document into practice.</p>
+        <p className="text-subtle text-sm mb-4">
           Flashcards and questions drawn from the text, each citing the page it came from.
         </p>
         <button
@@ -89,7 +89,7 @@ export function StudyPanel({
     downloadTextFile(ANKI_FILE_NAME, toAnkiTsv(pack.flashcards, pack.quizItems));
 
   return (
-    <div className="bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-2xl mb-8">
+    <div className="bg-surface p-6 sm:p-8 rounded-2xl shadow-2xl mb-8">
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
         <div className="flex gap-2">
           <TabButton active={tab === 'cards'} onClick={() => setTab('cards')}>
@@ -125,11 +125,11 @@ export function StudyPanel({
       )}
 
       {pack.preQuestions.length > 0 && (
-        <div className="mb-6 p-4 bg-gray-700/40 rounded-lg border border-gray-600">
+        <div className="mb-6 p-4 bg-raised/40 rounded-lg border border-line-strong">
           {/* Prequestioning works by steering attention *during* reading, so
               these belong before the material rather than after it. */}
-          <h3 className="text-gray-200 font-semibold mb-2">Before you read, look for:</h3>
-          <ul className="list-disc list-inside space-y-1 text-gray-300">
+          <h3 className="text-secondary font-semibold mb-2">Before you read, look for:</h3>
+          <ul className="list-disc list-inside space-y-1 text-chrome">
             {pack.preQuestions.map((pre, index) => (
               <li key={`${index}-${pre.question}`}>{pre.question}</li>
             ))}
@@ -187,7 +187,7 @@ export function StudyPanel({
 
       {/* Required from 2 August 2026 by the EU AI Act, and honest regardless:
           these items were written by a model, from the reader's document. */}
-      <p className="mt-6 text-xs text-gray-500">
+      <p className="mt-6 text-xs text-subtle">
         AI-generated from your document using {pack.model}
         {pack.reused && ' · reused from an earlier run'}
         {pack.rejected > 0 &&
@@ -210,7 +210,7 @@ function TabButton({
     <button
       onClick={onClick}
       className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-        active ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+        active ? 'bg-blue-600 text-white' : 'bg-raised text-chrome hover:bg-raised-hover'
       }`}
     >
       {children}

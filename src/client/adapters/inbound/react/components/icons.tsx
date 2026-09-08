@@ -9,18 +9,18 @@ export const LogoIcon = (): React.JSX.Element => (
   <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 md:w-14 md:h-14" viewBox="0 0 24 24" fill="none">
     <defs>
       <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#60a5fa" />
-        <stop offset="100%" stopColor="#a855f7" />
+        <stop offset="0%" stopColor="var(--er-brand-from, #60a5fa)" />
+        <stop offset="100%" stopColor="var(--er-brand-to, #a855f7)" />
       </linearGradient>
     </defs>
     <path
       d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
-      stroke="#9ca3af"
+      stroke="var(--er-logo-stroke, #9ca3af)"
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    <path d="M14 2v6h6" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M14 2v6h6" stroke="var(--er-logo-stroke, #9ca3af)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     <path d="M9.5 14a.5.5 0 0 1 0 1" stroke="url(#logoGradient)" strokeWidth="1.5" strokeLinecap="round" />
     <path d="M12 13a2.5 2.5 0 0 1 0 3" stroke="url(#logoGradient)" strokeWidth="1.5" strokeLinecap="round" />
     <path d="M14.5 12a4 4 0 0 1 0 5" stroke="url(#logoGradient)" strokeWidth="1.5" strokeLinecap="round" />
@@ -79,7 +79,7 @@ export const NextIcon = (): React.JSX.Element => (
 
 export const LoaderIcon = (): React.JSX.Element => (
   <svg
-    className="animate-spin h-6 w-6 text-white"
+    className="animate-spin h-6 w-6 text-current"
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
     viewBox="0 0 24 24"

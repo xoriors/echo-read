@@ -1,0 +1,170 @@
+/*
+ * Two palettes, one set of class names.
+ *
+ * Dark is the product default. Light is an explicit choice. Everything visual
+ * that has to survive a switch — page, type, chrome, logo stroke — reads these
+ * variables, so a theme change does not touch component markup.
+ */
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --er-page: 17 24 39;
+  --er-surface: 31 41 55;
+  --er-raised: 55 65 81;
+  --er-raised-hover: 75 85 99;
+  --er-fg: 255 255 255;
+  --er-secondary: 229 231 235;
+  --er-chrome: 209 213 219;
+  --er-muted: 156 163 175;
+  --er-subtle: 107 114 128;
+  --er-line: 55 65 81;
+  --er-line-strong: 75 85 99;
+  --er-logo-stroke: #9ca3af;
+  --er-brand-from: #60a5fa;
+  --er-brand-to: #a855f7;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --er-page: 249 250 251;
+  --er-surface: 255 255 255;
+  --er-raised: 243 244 246;
+  --er-raised-hover: 229 231 235;
+  --er-fg: 17 24 39;
+  --er-secondary: 31 41 55;
+  --er-chrome: 55 65 81;
+  --er-muted: 75 85 99;
+  --er-subtle: 107 114 128;
+  --er-line: 229 231 235;
+  --er-line-strong: 209 213 219;
+  --er-logo-stroke: #4b5563;
+  --er-brand-from: #2563eb;
+  --er-brand-to: #7c3aed;
+}
+
+html,
+body {
+  background-color: rgb(var(--er-page));
+  color: rgb(var(--er-fg));
+  font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.font-sans {
+  font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.font-display {
+  font-family: 'Space Grotesk', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+.bg-page {
+  background-color: rgb(var(--er-page));
+}
+.bg-surface {
+  background-color: rgb(var(--er-surface));
+}
+.bg-raised {
+  background-color: rgb(var(--er-raised));
+}
+.bg-raised\/50 {
+  background-color: rgb(var(--er-raised) / 0.5);
+}
+.bg-raised\/40 {
+  background-color: rgb(var(--er-raised) / 0.4);
+}
+.bg-raised-hover {
+  background-color: rgb(var(--er-raised-hover));
+}
+.hover\:bg-raised:hover {
+  background-color: rgb(var(--er-raised));
+}
+.hover\:bg-raised-hover:hover {
+  background-color: rgb(var(--er-raised-hover));
+}
+
+.text-fg {
+  color: rgb(var(--er-fg));
+}
+.text-secondary {
+  color: rgb(var(--er-secondary));
+}
+.text-chrome {
+  color: rgb(var(--er-chrome));
+}
+.text-muted {
+  color: rgb(var(--er-muted));
+}
+.text-subtle {
+  color: rgb(var(--er-subtle));
+}
+.hover\:text-fg:hover {
+  color: rgb(var(--er-fg));
+}
+.hover\:text-secondary:hover {
+  color: rgb(var(--er-secondary));
+}
+
+.border-line {
+  border-color: rgb(var(--er-line));
+}
+.border-line-strong {
+  border-color: rgb(var(--er-line-strong));
+}
+
+html[data-theme='light'] .text-blue-400 {
+  color: #1d4ed8;
+}
+html[data-theme='light'] .hover\:text-blue-300:hover {
+  color: #1e40af;
+}
+
+/* Status colours are tuned for dark surfaces; lighten the fill and darken the
+   type so the same Tailwind classes stay readable on white. */
+html[data-theme='light'] .text-green-400,
+html[data-theme='light'] .text-green-200 {
+  color: #15803d;
+}
+html[data-theme='light'] .text-amber-400,
+html[data-theme='light'] .text-amber-200 {
+  color: #b45309;
+}
+html[data-theme='light'] .text-amber-100 {
+  color: #92400e;
+}
+html[data-theme='light'] .hover\:text-amber-100:hover {
+  color: #78350f;
+}
+html[data-theme='light'] .text-red-400,
+html[data-theme='light'] .text-red-200 {
+  color: #b91c1c;
+}
+html[data-theme='light'] .text-blue-200,
+html[data-theme='light'] .text-blue-300 {
+  color: #1d4ed8;
+}
+html[data-theme='light'] .bg-green-900\/40 {
+  background-color: #dcfce7;
+}
+html[data-theme='light'] .bg-red-900\/30,
+html[data-theme='light'] .bg-red-900\/50 {
+  background-color: #fee2e2;
+}
+html[data-theme='light'] .bg-blue-900\/30 {
+  background-color: #dbeafe;
+}
+html[data-theme='light'] .bg-amber-900\/30 {
+  background-color: #fef3c7;
+}
+html[data-theme='light'] .border-green-600 {
+  border-color: #16a34a;
+}
+html[data-theme='light'] .border-red-700 {
+  border-color: #b91c1c;
+}
+html[data-theme='light'] .border-blue-700 {
+  border-color: #1d4ed8;
+}
+html[data-theme='light'] .border-amber-700 {
+  border-color: #b45309;
+}
