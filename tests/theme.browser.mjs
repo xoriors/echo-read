@@ -47,6 +47,7 @@ const snapshot = () =>
   page.evaluate(() => {
     const root = document.documentElement;
     const pageEl = document.querySelector('#root > div');
+    const wordmark = document.querySelector('header h1');
     const logo = document.querySelector('header svg path');
     const icon = document.querySelector('link[rel="icon"]');
     const meta = document.querySelector('meta[name="theme-color"]');
@@ -68,7 +69,8 @@ const snapshot = () =>
       })(),
       favicon: icon?.getAttribute('href') ?? null,
       themeColor: meta?.getAttribute('content') ?? null,
-      font: pageStyle?.fontFamily ?? '',
+      uiFont: pageStyle?.fontFamily ?? '',
+      wordmarkFont: wordmark ? getComputedStyle(wordmark).fontFamily : '',
     };
   });
 
@@ -84,7 +86,8 @@ check(
 );
 check(dark.favicon === '/favicon.svg', `dark favicon (got ${dark.favicon})`);
 check(dark.themeColor === '#111827', `dark theme-color (got ${dark.themeColor})`);
-check(/Plex|sans-serif|system-ui|ui-sans-serif/i.test(dark.font), `a sans stack is in use (got ${dark.font})`);
+check(/IBM Plex Sans/i.test(dark.uiFont), `UI uses IBM Plex Sans (got ${dark.uiFont})`);
+check(/Space Grotesk/i.test(dark.wordmarkFont), `wordmark uses Space Grotesk (got ${dark.wordmarkFont})`);
 
 const toggle = page.getByRole('button', { name: 'Switch to light theme' });
 check((await toggle.count()) === 1, 'a control offers the light theme');
