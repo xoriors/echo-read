@@ -24,7 +24,7 @@ export function FlashcardReview({ cards, onGrade, onSpeakCard }: FlashcardReview
   const [revealed, setRevealed] = useState(false);
 
   if (cards.length === 0) {
-    return <p className="text-gray-400 text-center py-8">No flashcards in this pack.</p>;
+    return <p className="text-muted text-center py-8">No flashcards in this pack.</p>;
   }
 
   const card = cards[Math.min(index, cards.length - 1)];
@@ -41,21 +41,21 @@ export function FlashcardReview({ cards, onGrade, onSpeakCard }: FlashcardReview
 
   return (
     <div>
-      <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
+      <div className="flex justify-between items-center text-sm text-subtle mb-2">
         <span>
           Card {Math.min(index, cards.length - 1) + 1} of {cards.length}
         </span>
         {card.sourcePage !== undefined && <span>page {card.sourcePage}</span>}
       </div>
 
-      <div className="bg-gray-700/50 border border-gray-600 rounded-xl p-6 min-h-[10rem] flex flex-col justify-center">
-        <p className="text-xl text-gray-100 text-center">{card.front}</p>
+      <div className="bg-raised/50 border border-line-strong rounded-xl p-6 min-h-[10rem] flex flex-col justify-center">
+        <p className="text-xl text-fg text-center">{card.front}</p>
 
         {revealed && (
-          <div className="mt-5 pt-5 border-t border-gray-600">
-            <p className="text-lg text-gray-200 text-center">{card.back}</p>
+          <div className="mt-5 pt-5 border-t border-line-strong">
+            <p className="text-lg text-secondary text-center">{card.back}</p>
             {card.sourceQuote && (
-              <p className="mt-3 text-sm text-gray-400 italic text-center">“{card.sourceQuote}”</p>
+              <p className="mt-3 text-sm text-muted italic text-center">“{card.sourceQuote}”</p>
             )}
           </div>
         )}
@@ -72,7 +72,7 @@ export function FlashcardReview({ cards, onGrade, onSpeakCard }: FlashcardReview
             </button>
             <button
               onClick={() => onSpeakCard(card.front, card.back)}
-              className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+              className="bg-raised hover:bg-raised-hover text-secondary py-2 px-4 rounded-lg transition-colors"
               title="Question, a pause to recall, then the answer"
             >
               Listen
@@ -84,7 +84,7 @@ export function FlashcardReview({ cards, onGrade, onSpeakCard }: FlashcardReview
               <button
                 key={rating}
                 onClick={() => grade(rating)}
-                className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+                className="bg-raised hover:bg-raised-hover text-secondary py-2 px-4 rounded-lg transition-colors"
                 title={`How well did you recall this? ${RATING_LABEL[rating]}`}
               >
                 {RATING_LABEL[rating]}

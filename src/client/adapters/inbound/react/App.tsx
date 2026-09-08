@@ -320,7 +320,7 @@ export default function App(): React.JSX.Element {
   const isBusy = isFetching || narration.state === PlaybackState.Buffering;
 
   return (
-    <div className="bg-gray-900 min-h-screen text-white font-sans flex flex-col items-center p-4 sm:p-6 md:p-8">
+    <div className="bg-page min-h-screen text-fg font-sans flex flex-col items-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-4xl">
         <AppHeader onOpenLibrary={() => setLibraryOpen(true)} />
 

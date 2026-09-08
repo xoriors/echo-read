@@ -20,8 +20,8 @@ export function SourcePanel(props: SourceFormProps): React.JSX.Element {
   const ActiveForm = FORMS[controller.form.kind];
 
   return (
-    <main className="bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-2xl mb-8">
-      <div className="flex justify-center border-b border-gray-700 mb-6 flex-wrap" role="tablist">
+    <main className="bg-surface p-6 sm:p-8 rounded-2xl shadow-2xl mb-8">
+      <div className="flex justify-center border-b border-line mb-6 flex-wrap" role="tablist">
         {SOURCE_KINDS.map((kind) => (
           <button
             key={kind}
@@ -32,8 +32,8 @@ export function SourcePanel(props: SourceFormProps): React.JSX.Element {
             disabled={busy}
             className={`px-4 py-3 text-md sm:text-lg font-semibold transition-colors duration-300 disabled:opacity-50 ${
               controller.form.kind === kind
-                ? 'border-b-4 border-blue-500 text-white'
-                : 'text-gray-400 hover:text-white'
+                ? 'border-b-4 border-blue-500 text-fg'
+                : 'text-muted hover:text-fg'
             }`}
           >
             {SOURCE_KIND_LABEL[kind]}

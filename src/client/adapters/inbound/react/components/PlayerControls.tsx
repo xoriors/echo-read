@@ -69,7 +69,7 @@ export function PlayerControls({
     // viewport tall — something that size cannot float above a page, it just
     // covers it. Below `sm` it stays in the flow, where scrolling reaches it
     // and nothing hides behind it.
-    <div className="relative sm:sticky sm:bottom-4 w-full max-w-4xl bg-gray-800 border border-gray-700 backdrop-blur-sm p-5 rounded-2xl shadow-2xl">
+    <div className="relative sm:sticky sm:bottom-4 w-full max-w-4xl bg-surface border border-line backdrop-blur-sm p-5 rounded-2xl shadow-2xl">
       <div
         className={`transition-opacity duration-500 ${
           enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'
@@ -97,7 +97,7 @@ export function PlayerControls({
       </div>
 
       {narration.chunkCount > 1 && (
-        <div className="text-center text-xs text-gray-400 mt-1 mb-2">
+        <div className="text-center text-xs text-muted mt-1 mb-2">
           Part {narration.chunkIndex + 1} of {narration.chunkCount}
         </div>
       )}
@@ -112,7 +112,7 @@ export function PlayerControls({
           value={narration.positionSeconds}
           onChange={(event) => onSeek(Number(event.target.value))}
           aria-label="Seek"
-          className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500 disabled:cursor-not-allowed"
+          className="w-full h-2 bg-raised-hover rounded-lg appearance-none cursor-pointer accent-blue-500 disabled:cursor-not-allowed"
           disabled={!enabled}
         />
         <span className="text-lg">{formatTimecode(narration.durationSeconds)}</span>
@@ -192,7 +192,7 @@ function TransportButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className={`text-gray-300 hover:text-white transition-transform transform hover:scale-110 disabled:text-gray-600 ${className}`}
+      className={`text-chrome hover:text-fg transition-transform transform hover:scale-110 disabled:text-subtle ${className}`}
       disabled={disabled}
     >
       {children}
@@ -208,11 +208,11 @@ function FontSizeControl({
   onChange: (size: number) => void;
 }): React.JSX.Element {
   return (
-    <div className="flex items-center space-x-2 bg-gray-700 px-3 py-2 rounded-md border border-gray-600 shadow-sm">
-      <label htmlFor="font-size-control" className="text-lg font-semibold text-gray-200 mr-1">
+    <div className="flex items-center space-x-2 bg-raised px-3 py-2 rounded-md border border-line-strong shadow-sm">
+      <label htmlFor="font-size-control" className="text-lg font-semibold text-secondary mr-1">
         Text Size:
       </label>
-      <span className="text-sm font-bold text-gray-400">A</span>
+      <span className="text-sm font-bold text-muted">A</span>
       <input
         id="font-size-control"
         type="range"
@@ -221,9 +221,9 @@ function FontSizeControl({
         step="1"
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="w-20 sm:w-24 h-2 bg-gray-900 rounded-lg appearance-none cursor-pointer accent-blue-500"
+        className="w-20 sm:w-24 h-2 bg-page rounded-lg appearance-none cursor-pointer accent-blue-500"
       />
-      <span className="text-xl font-bold text-gray-400">A</span>
+      <span className="text-xl font-bold text-muted">A</span>
     </div>
   );
 }

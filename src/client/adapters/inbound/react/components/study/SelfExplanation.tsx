@@ -36,7 +36,7 @@ export function SelfExplanation({ prompts, onCheck }: SelfExplanationProps): Rea
   const [error, setError] = useState<string | null>(null);
 
   if (prompts.length === 0) {
-    return <p className="text-gray-400 text-center py-8">No explanation prompts in this pack.</p>;
+    return <p className="text-muted text-center py-8">No explanation prompts in this pack.</p>;
   }
 
   const prompt = prompts[Math.min(index, prompts.length - 1)];
@@ -65,15 +65,15 @@ export function SelfExplanation({ prompts, onCheck }: SelfExplanationProps): Rea
 
   return (
     <div>
-      <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
+      <div className="flex justify-between items-center text-sm text-subtle mb-2">
         <span>
           Prompt {Math.min(index, prompts.length - 1) + 1} of {prompts.length}
         </span>
         {prompt.sourcePage !== undefined && <span>page {prompt.sourcePage}</span>}
       </div>
 
-      <div className="bg-gray-700/50 border border-gray-600 rounded-xl p-6">
-        <p className="text-lg text-gray-100 mb-4">{prompt.prompt}</p>
+      <div className="bg-raised/50 border border-line-strong rounded-xl p-6">
+        <p className="text-lg text-fg mb-4">{prompt.prompt}</p>
 
         <textarea
           value={answer}
@@ -81,11 +81,11 @@ export function SelfExplanation({ prompts, onCheck }: SelfExplanationProps): Rea
           disabled={checking}
           rows={6}
           placeholder="Explain it as if to someone who has not read this…"
-          className="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
+          className="w-full bg-surface border border-line-strong rounded-lg p-3 text-fg placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
         />
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-subtle">
             {tooShort
               ? `${MIN_EXPLANATION_CHARACTERS - answer.trim().length} more characters`
               : `${answer.trim().split(/\s+/).length} words`}
@@ -96,7 +96,7 @@ export function SelfExplanation({ prompts, onCheck }: SelfExplanationProps): Rea
             {result && (
               <button
                 onClick={() => setResult(null)}
-                className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+                className="bg-raised hover:bg-raised-hover text-secondary py-2 px-4 rounded-lg transition-colors"
               >
                 Answer Again
               </button>
@@ -120,13 +120,13 @@ export function SelfExplanation({ prompts, onCheck }: SelfExplanationProps): Rea
         <div className="mt-4 flex justify-center gap-2">
           <button
             onClick={() => move(-1)}
-            className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+            className="bg-raised hover:bg-raised-hover text-secondary py-2 px-4 rounded-lg transition-colors"
           >
             Previous
           </button>
           <button
             onClick={() => move(1)}
-            className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+            className="bg-raised hover:bg-raised-hover text-secondary py-2 px-4 rounded-lg transition-colors"
           >
             Next Prompt
           </button>
@@ -140,8 +140,8 @@ function Feedback({ result }: { result: ExplainCheckResponse }): React.JSX.Eleme
   const { feedback } = result;
 
   return (
-    <div className="mt-4 bg-gray-700/40 border border-gray-600 rounded-xl p-5">
-      {feedback.summary && <p className="text-gray-100 mb-4">{feedback.summary}</p>}
+    <div className="mt-4 bg-raised/40 border border-line-strong rounded-xl p-5">
+      {feedback.summary && <p className="text-fg mb-4">{feedback.summary}</p>}
 
       <PointList title="You covered" tone="text-green-400" points={feedback.covered} />
       {/* Listed second and never folded away: what a learner left out is the
@@ -155,14 +155,14 @@ function Feedback({ result }: { result: ExplainCheckResponse }): React.JSX.Eleme
       />
 
       {feedbackPointCount(feedback) === 0 && (
-        <p className="text-gray-400">
+        <p className="text-muted">
           Nothing could be checked against the document for this one.
         </p>
       )}
 
       {/* Same disclosure the pack carries, and it matters more here: this is a
           judgement of the reader's own words, not a generated card. */}
-      <p className="mt-4 text-xs text-gray-500">
+      <p className="mt-4 text-xs text-subtle">
         AI-generated feedback from your document using {result.model}
         {result.unverified > 0 &&
           ` · ${result.unverified} point${result.unverified === 1 ? '' : 's'} discarded for citing the source incorrectly`}
@@ -187,9 +187,9 @@ function PointList({
       <h4 className={`font-semibold mb-2 ${tone}`}>{title}</h4>
       <ul className="space-y-2">
         {points.map((point) => (
-          <li key={`${point.sourcePage}-${point.point}`} className="text-gray-300">
+          <li key={`${point.sourcePage}-${point.point}`} className="text-chrome">
             {point.point}
-            <span className="block text-sm text-gray-500 italic mt-0.5">
+            <span className="block text-sm text-subtle italic mt-0.5">
               “{point.sourceQuote}” — page {point.sourcePage}
             </span>
           </li>

@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client';
 
 import App from './adapters/inbound/react/App';
 import { ContainerProvider } from './adapters/inbound/react/ContainerContext';
+import './adapters/inbound/react/theme.css';
+import { hydrateTheme } from './adapters/inbound/react/themeDom';
+
+hydrateTheme();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Could not find root element to mount to');

@@ -17,7 +17,7 @@ export function ReadModeSelector({
   disabled: boolean;
 }): React.JSX.Element {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2 p-1 bg-gray-700 rounded-lg">
+    <div className="flex flex-wrap items-center justify-center gap-2 p-1 bg-raised rounded-lg">
       {DOCUMENT_MODES.map((mode) => (
         <SegmentedButton
           key={mode}

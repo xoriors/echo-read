@@ -20,14 +20,14 @@ export function LibraryDrawer({ library, open, onClose, onOpenEntry }: LibraryDr
   return (
     <>
       <div
-        className={`fixed inset-y-0 right-0 z-50 w-full sm:w-[400px] bg-gray-800 border-l border-gray-700 shadow-2xl transform transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 right-0 z-50 w-full sm:w-[400px] bg-surface border-l border-line shadow-2xl transform transition-transform duration-300 ease-in-out ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
         aria-hidden={!open}
       >
         <div className="p-4 sm:p-6 flex flex-col h-full">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex bg-gray-700 rounded-lg p-1 space-x-1">
+            <div className="flex bg-raised rounded-lg p-1 space-x-1">
               <TabButton selected={tab === 'history'} onClick={() => setTab('history')}>
                 <HistoryIcon />
                 History
@@ -41,14 +41,14 @@ export function LibraryDrawer({ library, open, onClose, onOpenEntry }: LibraryDr
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="p-2 text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-full transition-colors border border-gray-600"
+              className="p-2 text-muted hover:text-fg bg-raised hover:bg-raised-hover rounded-full transition-colors border border-line-strong"
             >
               <CloseIcon />
             </button>
           </div>
 
           {entries.length === 0 ? (
-            <p className="text-gray-400 text-center mt-[10vh]">
+            <p className="text-muted text-center mt-[10vh]">
               {tab === 'history' ? 'No recent content found.' : 'Your Read Later list is empty.'}
             </p>
           ) : (
@@ -82,7 +82,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
-        selected ? 'bg-gray-600 text-white shadow' : 'text-gray-400 hover:text-white'
+        selected ? 'bg-raised-hover text-fg shadow' : 'text-muted hover:text-fg'
       }`}
     >
       {children}
@@ -105,13 +105,13 @@ function EntryCard({
     <button
       type="button"
       onClick={onOpen}
-      className="w-full text-left bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg p-4 transition-colors group relative"
+      className="w-full text-left bg-raised hover:bg-raised-hover border border-line-strong rounded-lg p-4 transition-colors group relative"
     >
       <h3 className="font-semibold text-blue-400 truncate pr-4 text-lg mb-2" title={entry.title}>
         {entry.title}
       </h3>
-      <div className="flex items-center justify-between text-xs text-gray-400">
-        <span className="uppercase tracking-wider font-bold bg-gray-800 px-2 py-1 rounded">{entry.kind}</span>
+      <div className="flex items-center justify-between text-xs text-muted">
+        <span className="uppercase tracking-wider font-bold bg-surface px-2 py-1 rounded">{entry.kind}</span>
         <span>
           {tab === 'history'
             ? timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

@@ -16,7 +16,7 @@ export function PdfSourceForm({ controller, busy, canSubmit, onSubmit }: SourceF
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center space-y-4">
-        <div className="flex bg-gray-700/50 rounded-lg p-1 w-full sm:w-2/3 justify-center mb-2">
+        <div className="flex bg-raised/50 rounded-lg p-1 w-full sm:w-2/3 justify-center mb-2">
           <SegmentedButton
             selected={pdf.method === 'file'}
             onClick={() => controller.updatePdf({ method: 'file' })}
@@ -76,7 +76,7 @@ function PdfFilePicker({
     <>
       <label
         htmlFor="pdf-upload"
-        className="w-full sm:w-2/3 flex justify-center items-center text-lg font-bold bg-gray-600 hover:bg-gray-500 text-white py-4 px-8 rounded-lg transition-colors duration-200 cursor-pointer"
+        className="w-full sm:w-2/3 flex justify-center items-center text-lg font-bold bg-raised-hover hover:bg-raised text-fg py-4 px-8 rounded-lg transition-colors duration-200 cursor-pointer"
       >
         {fileName ? 'Change PDF' : 'Select PDF File'}
       </label>
@@ -88,7 +88,7 @@ function PdfFilePicker({
         className="hidden"
         disabled={busy}
       />
-      {fileName && <p className="text-gray-300 text-center truncate w-full px-4">Selected: {fileName}</p>}
+      {fileName && <p className="text-chrome text-center truncate w-full px-4">Selected: {fileName}</p>}
     </>
   );
 }
@@ -100,7 +100,7 @@ function PdfRangeSelector({
   const { pdf } = controller.form;
 
   return (
-    <div className="w-full bg-gray-700/50 p-4 rounded-lg">
+    <div className="w-full bg-raised/50 p-4 rounded-lg">
       <h3 className="text-lg font-semibold mb-3 text-center">Advanced Selection</h3>
       <div className="flex justify-center space-x-2 sm:space-x-4 mb-4">
         {PDF_SELECTION_MODES.map((mode) => (
@@ -124,10 +124,10 @@ function PdfRangeSelector({
             placeholder="From"
             aria-label="Range start"
             min="1"
-            className="w-24 text-center p-2 bg-gray-700 border-2 border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="w-24 text-center p-2 text-fg bg-raised border-2 border-line-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={busy}
           />
-          <span className="text-gray-400">-</span>
+          <span className="text-muted">-</span>
           <input
             type="number"
             value={pdf.rangeEnd}
@@ -135,7 +135,7 @@ function PdfRangeSelector({
             placeholder="To"
             aria-label="Range end"
             min={pdf.rangeStart || '1'}
-            className="w-24 text-center p-2 bg-gray-700 border-2 border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="w-24 text-center p-2 text-fg bg-raised border-2 border-line-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={busy}
           />
         </div>

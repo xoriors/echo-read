@@ -25,7 +25,7 @@ export function QuizView({ items, onSpeakQuestion, onSpeakAnswer }: QuizViewProp
   const [history, setHistory] = useState<QuizAttempt[]>([]);
 
   if (items.length === 0) {
-    return <p className="text-gray-400 text-center py-8">No questions in this pack.</p>;
+    return <p className="text-muted text-center py-8">No questions in this pack.</p>;
   }
 
   const item = items[Math.min(index, items.length - 1)];
@@ -45,7 +45,7 @@ export function QuizView({ items, onSpeakQuestion, onSpeakAnswer }: QuizViewProp
 
   return (
     <div>
-      <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
+      <div className="flex justify-between items-center text-sm text-subtle mb-2">
         <span>
           Question {Math.min(index, items.length - 1) + 1} of {items.length}
           {item.bloomLevel && ` · ${item.bloomLevel}`}
@@ -56,8 +56,8 @@ export function QuizView({ items, onSpeakQuestion, onSpeakAnswer }: QuizViewProp
         </span>
       </div>
 
-      <div className="bg-gray-700/50 border border-gray-600 rounded-xl p-6">
-        <p className="text-lg text-gray-100 mb-4">{item.stem}</p>
+      <div className="bg-raised/50 border border-line-strong rounded-xl p-6">
+        <p className="text-lg text-fg mb-4">{item.stem}</p>
 
         <div className="space-y-2">
           {item.options.map((option, optionIndex) => (
@@ -77,13 +77,13 @@ export function QuizView({ items, onSpeakQuestion, onSpeakAnswer }: QuizViewProp
         </div>
 
         {attempt && (
-          <div className="mt-5 pt-5 border-t border-gray-600">
+          <div className="mt-5 pt-5 border-t border-line-strong">
             <p className={attempt.correct ? 'text-green-400 font-semibold' : 'text-amber-400 font-semibold'}>
               {attempt.correct ? 'Correct' : `Not quite — the answer is “${item.options[item.answerIndex]}”`}
             </p>
-            {item.rationale && <p className="mt-2 text-gray-300">{item.rationale}</p>}
+            {item.rationale && <p className="mt-2 text-chrome">{item.rationale}</p>}
             {item.sourceQuote && (
-              <p className="mt-2 text-sm text-gray-400 italic">“{item.sourceQuote}”</p>
+              <p className="mt-2 text-sm text-muted italic">“{item.sourceQuote}”</p>
             )}
           </div>
         )}
@@ -95,7 +95,7 @@ export function QuizView({ items, onSpeakQuestion, onSpeakAnswer }: QuizViewProp
         {!attempt ? (
           <button
             onClick={() => onSpeakQuestion(item.stem, item.options)}
-            className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+            className="bg-raised hover:bg-raised-hover text-secondary py-2 px-4 rounded-lg transition-colors"
             title="Reads the question and the options, and stops there"
           >
             Listen
@@ -104,7 +104,7 @@ export function QuizView({ items, onSpeakQuestion, onSpeakAnswer }: QuizViewProp
           <>
             <button
               onClick={() => onSpeakAnswer(item.options[item.answerIndex], item.rationale)}
-              className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded-lg transition-colors"
+              className="bg-raised hover:bg-raised-hover text-secondary py-2 px-4 rounded-lg transition-colors"
               title="Reads the answer and why"
             >
               Listen to Answer
@@ -124,8 +124,8 @@ export function QuizView({ items, onSpeakQuestion, onSpeakAnswer }: QuizViewProp
 
 /** Options stay neutral until an attempt; afterwards they show what happened. */
 function optionStyle(attempt: QuizAttempt | null, option: number, answer: number): string {
-  if (!attempt) return 'bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700 cursor-pointer';
+  if (!attempt) return 'bg-surface border-line-strong text-secondary hover:bg-raised cursor-pointer';
   if (option === answer) return 'bg-green-900/40 border-green-600 text-green-200';
   if (option === attempt.chosenIndex) return 'bg-red-900/30 border-red-700 text-red-200';
-  return 'bg-gray-800 border-gray-700 text-gray-400';
+  return 'bg-surface border-line text-muted';
 }
