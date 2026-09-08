@@ -136,6 +136,7 @@ export function SelfExplanation({ prompts, onCheck }: SelfExplanationProps): Rea
   );
 }
 
+/** Covered, missed, contradicted — missed stays visible because self-grade fails there. */
 function Feedback({ result }: { result: ExplainCheckResponse }): React.JSX.Element {
   const { feedback } = result;
 
@@ -171,6 +172,7 @@ function Feedback({ result }: { result: ExplainCheckResponse }): React.JSX.Eleme
   );
 }
 
+/** One feedback bucket plus the quote and page that grounded it. */
 function PointList({
   title,
   tone,

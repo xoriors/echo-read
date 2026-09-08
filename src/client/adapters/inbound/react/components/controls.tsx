@@ -5,6 +5,7 @@ import React, { type ReactNode } from 'react';
 export const SEGMENT_BASE =
   'px-3 py-1.5 text-sm sm:text-base font-semibold rounded-md transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed';
 
+/** One option in an exclusive group; `aria-pressed` is the selected state. */
 export function SegmentedButton({
   selected,
   onClick,
@@ -56,6 +57,7 @@ export function PrimaryButton({
   );
 }
 
+/** Compact action; `active` is confirmation (copied, on), not merely hover. */
 export function ToolbarButton({
   onClick,
   title,
@@ -84,6 +86,7 @@ export function ToolbarButton({
 export const TEXT_INPUT_CLASS =
   'text-lg p-4 text-fg bg-raised border-2 border-line-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition';
 
+/** Label and box as one hit target, so the text is as clickable as the control. */
 export function Checkbox({
   checked,
   onChange,
@@ -106,6 +109,7 @@ export function Checkbox({
   );
 }
 
+/** A named `<select>` whose options are value/label pairs, not raw strings. */
 export function LabelledSelect<T extends string | number>({
   id,
   label,

@@ -197,6 +197,7 @@ export function StudyPanel({
   );
 }
 
+/** Cards / questions / explain; active is filled blue, not an underline. */
 function TabButton({
   active,
   onClick,

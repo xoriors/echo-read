@@ -14,6 +14,7 @@ export function hydrateTheme(): Theme {
   return theme;
 }
 
+/** Writes data-theme, color-scheme, theme-color, and the matching favicon. */
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement;
   root.dataset.theme = theme;
@@ -26,6 +27,7 @@ export function applyTheme(theme: Theme): void {
   if (icon) icon.setAttribute('href', faviconHref(theme));
 }
 
+/** Remembers the choice. A full or locked store is ignored so the page stays up. */
 export function persistTheme(theme: Theme, storage?: Storage | null): void {
   try {
     storageOf(storage)?.setItem(THEME_STORAGE_KEY, theme);
@@ -34,6 +36,7 @@ export function persistTheme(theme: Theme, storage?: Storage | null): void {
   }
 }
 
+/** Reads only. A store that throws on get, or cannot be reached, is treated as dark. */
 export function readStoredTheme(storage?: Storage | null): Theme {
   try {
     return parseTheme(storageOf(storage)?.getItem(THEME_STORAGE_KEY));
@@ -42,6 +45,7 @@ export function readStoredTheme(storage?: Storage | null): Theme {
   }
 }
 
+/** An injected store, else localStorage if merely *reading* it is allowed. */
 function storageOf(storage?: Storage | null): Storage | null {
   if (storage !== undefined) return storage;
   try {

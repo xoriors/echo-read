@@ -5,6 +5,7 @@ import React from 'react';
 const CONTROL_ICON = 'w-8 h-8';
 const ACTION_ICON = 'w-5 h-5';
 
+/** Document-and-waves mark; stroke and brand stops follow the active palette. */
 export const LogoIcon = (): React.JSX.Element => (
   <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 md:w-14 md:h-14" viewBox="0 0 24 24" fill="none">
     <defs>
@@ -77,6 +78,7 @@ export const NextIcon = (): React.JSX.Element => (
   </svg>
 );
 
+/** Spinner in `currentColor` so it stays visible on both palettes and on blue buttons. */
 export const LoaderIcon = (): React.JSX.Element => (
   <svg
     className="animate-spin h-6 w-6 text-current"

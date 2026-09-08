@@ -2,6 +2,7 @@ import React from 'react';
 
 import { useTheme } from '../hooks/useTheme';
 
+/** Header control that switches palettes and announces the destination, not the current one. */
 export function ThemeToggle(): React.JSX.Element {
   const { theme, toggleTheme } = useTheme();
   const toLight = theme === 'dark';
