@@ -46,6 +46,13 @@ await page.waitForFunction(() => document.fonts.status === 'loaded');
 
 const snapshot = () =>
   page.evaluate(async () => {
+    await Promise.all([
+      document.fonts.load('400 16px "IBM Plex Sans"'),
+      document.fonts.load('500 16px "IBM Plex Sans"'),
+      document.fonts.load('600 16px "IBM Plex Sans"'),
+      document.fonts.load('700 16px "IBM Plex Sans"'),
+      document.fonts.load('700 16px "Space Grotesk"'),
+    ]);
     await document.fonts.ready;
     const root = document.documentElement;
     const pageEl = document.querySelector('#root > div');
@@ -73,9 +80,24 @@ const snapshot = () =>
       themeColor: meta?.getAttribute('content') ?? null,
       uiFont: pageStyle?.fontFamily ?? '',
       wordmarkFont: wordmark ? getComputedStyle(wordmark).fontFamily : '',
-      plexLoaded: document.fonts.check('16px "IBM Plex Sans"'),
-      groteskLoaded: document.fonts.check('700 16px "Space Grotesk"'),
+      plexWeights: loadedWeights('IBM Plex Sans'),
+      groteskWeights: loadedWeights('Space Grotesk'),
+      missingFaceRegistered: [...document.fonts].some((face) =>
+        String(face.family).replace(/['"]/g, '').toLowerCase() === 'echoreadmissingface',
+      ),
     };
+
+    function loadedWeights(family) {
+      const want = family.toLowerCase();
+      const weights = [];
+      document.fonts.forEach((face) => {
+        const name = String(face.family).replace(/['"]/g, '');
+        if (name.toLowerCase() !== want) return;
+        if (face.status !== 'loaded') return;
+        weights.push(String(face.weight));
+      });
+      return [...new Set(weights)].sort();
+    }
   });
 
 const dark = await snapshot();
@@ -92,8 +114,15 @@ check(dark.favicon === '/favicon.svg', `dark favicon (got ${dark.favicon})`);
 check(dark.themeColor === '#111827', `dark theme-color (got ${dark.themeColor})`);
 check(/IBM Plex Sans/i.test(dark.uiFont), `UI stack names IBM Plex Sans (got ${dark.uiFont})`);
 check(/Space Grotesk/i.test(dark.wordmarkFont), `wordmark stack names Space Grotesk (got ${dark.wordmarkFont})`);
-check(dark.plexLoaded === true, 'IBM Plex Sans is a loaded face, not only a fallback name');
-check(dark.groteskLoaded === true, 'Space Grotesk is a loaded face, not only a fallback name');
+check(
+  ['400', '500', '600', '700'].every((w) => dark.plexWeights.includes(w)),
+  `IBM Plex Sans loads 400/500/600/700 as FontFace entries (got ${dark.plexWeights})`,
+);
+check(
+  dark.groteskWeights.includes('700'),
+  `Space Grotesk loads 700 as a FontFace entry (got ${dark.groteskWeights})`,
+);
+check(dark.missingFaceRegistered === false, 'a family with no @font-face is not registered');
 
 const toggle = page.getByRole('button', { name: 'Switch to light theme' });
 check((await toggle.count()) === 1, 'a control offers the light theme');
