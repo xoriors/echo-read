@@ -42,9 +42,11 @@ await page.route('https://fonts.gstatic.com/**', (r) => r.abort());
 
 await page.goto(`${BASE}/`);
 await page.waitForSelector('h1');
+await page.waitForFunction(() => document.fonts.status === 'loaded');
 
 const snapshot = () =>
-  page.evaluate(() => {
+  page.evaluate(async () => {
+    await document.fonts.ready;
     const root = document.documentElement;
     const pageEl = document.querySelector('#root > div');
     const wordmark = document.querySelector('header h1');
@@ -71,6 +73,8 @@ const snapshot = () =>
       themeColor: meta?.getAttribute('content') ?? null,
       uiFont: pageStyle?.fontFamily ?? '',
       wordmarkFont: wordmark ? getComputedStyle(wordmark).fontFamily : '',
+      plexLoaded: document.fonts.check('16px "IBM Plex Sans"'),
+      groteskLoaded: document.fonts.check('700 16px "Space Grotesk"'),
     };
   });
 
@@ -86,8 +90,10 @@ check(
 );
 check(dark.favicon === '/favicon.svg', `dark favicon (got ${dark.favicon})`);
 check(dark.themeColor === '#111827', `dark theme-color (got ${dark.themeColor})`);
-check(/IBM Plex Sans/i.test(dark.uiFont), `UI uses IBM Plex Sans (got ${dark.uiFont})`);
-check(/Space Grotesk/i.test(dark.wordmarkFont), `wordmark uses Space Grotesk (got ${dark.wordmarkFont})`);
+check(/IBM Plex Sans/i.test(dark.uiFont), `UI stack names IBM Plex Sans (got ${dark.uiFont})`);
+check(/Space Grotesk/i.test(dark.wordmarkFont), `wordmark stack names Space Grotesk (got ${dark.wordmarkFont})`);
+check(dark.plexLoaded === true, 'IBM Plex Sans is a loaded face, not only a fallback name');
+check(dark.groteskLoaded === true, 'Space Grotesk is a loaded face, not only a fallback name');
 
 const toggle = page.getByRole('button', { name: 'Switch to light theme' });
 check((await toggle.count()) === 1, 'a control offers the light theme');
@@ -118,6 +124,7 @@ check(
 
 await page.reload();
 await page.waitForSelector('h1');
+await page.waitForFunction(() => document.fonts.status === 'loaded');
 const reloaded = await snapshot();
 console.log('  reloaded:', JSON.stringify(reloaded));
 check(reloaded.theme === 'light', `light survives a reload (got ${reloaded.theme})`);
