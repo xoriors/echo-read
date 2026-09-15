@@ -7,6 +7,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# The build has no .git to ask, so the commit is handed in. `npm run deploy`
+# passes it; a bare `fly deploy` stamps the build "unknown" rather than lying.
+ARG GIT_SHA=unknown
+ENV GIT_SHA=$GIT_SHA
+
 COPY . .
 RUN npm run build
 
@@ -30,6 +35,8 @@ COPY --from=build /app/dist/assets ./dist/assets
 COPY --from=build /app/dist/sw.js ./dist/sw.js
 COPY --from=build /app/dist/favicon.svg ./dist/favicon.svg
 COPY --from=build /app/dist/manifest.json ./dist/manifest.json
+# Which commit this image was built from; served at /version.json.
+COPY --from=build /app/dist/version.json ./dist/version.json
 COPY --from=build /app/dist/server.cjs ./server/server.cjs
 
 EXPOSE 3000

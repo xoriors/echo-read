@@ -80,6 +80,17 @@ await page.waitForSelector('textarea, input[type="url"]');
 const body = () => page.locator('#root').innerText();
 const player = () => page.locator('button[title="Rewind 10 seconds"], button[aria-label*="Rewind"]');
 
+// --- The build is visible ---------------------------------------------------
+// So a deploy can be checked against `main` by eye. In dev this is the local
+// checkout's SHA; in an image it is whatever `npm run deploy` handed in.
+const stamp = (await page.locator('footer').innerText()).trim();
+check(/^Build /.test(stamp), `the footer names the build (got "${stamp}")`);
+check(
+  /\b([0-9a-f]{7,40}(-dirty)?|dev|unknown)\b/.test(stamp),
+  'with a commit SHA, or an honest placeholder when there is none',
+);
+check(/\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/.test(stamp), 'and when it was built');
+
 // --- Reach the paste-text form and choose Learn ---------------------------
 await page.locator('button', { hasText: /^Text$/ }).click();
 await page.locator('textarea').first().fill(DOCUMENT);

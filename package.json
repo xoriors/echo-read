@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node tests/run.mjs",
     "test:live": "tsx tests/explainLive.test.ts",
-    "test:assets": "curl -sSL -o tests/pages/tailwind-local.js https://cdn.tailwindcss.com"
+    "test:assets": "curl -sSL -o tests/pages/tailwind-local.js https://cdn.tailwindcss.com",
+    "deploy": "fly deploy --build-arg GIT_SHA=$(git rev-parse --short HEAD)"
   },
   "dependencies": {
     "@google/genai": "^1.27.0",

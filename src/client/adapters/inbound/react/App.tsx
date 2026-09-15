@@ -26,6 +26,7 @@ import { LocalFilePdfSource, RemotePdfSource } from '../../outbound/pdf/browserP
 import { copyToClipboard, downloadTextFile } from '../../outbound/browser/browserApis';
 import { AppHeader } from './components/AppHeader';
 import { DocumentPanel } from './components/DocumentPanel';
+import { BuildStamp } from './components/BuildStamp';
 import { LibraryDrawer } from './components/LibraryDrawer';
 import { PlayerControls, type ReadingPreferences } from './components/PlayerControls';
 import { SourcePanel } from './components/sources/SourcePanel';
@@ -402,6 +403,8 @@ export default function App(): React.JSX.Element {
             onPreferencesChange={updatePreferences}
           />
         )}
+
+        <BuildStamp />
       </div>
 
       <LibraryDrawer
