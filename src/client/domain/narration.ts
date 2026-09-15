@@ -1,4 +1,4 @@
-import { DEFAULT_MAX_CHUNK_LENGTH, splitIntoChunks } from './textChunker';
+import { DEFAULT_CHUNKING, splitIntoChunks, type ChunkingPolicy } from './textChunker';
 
 export interface NarrationChunk {
   index: number;
@@ -41,9 +41,9 @@ export class Narration {
     this.spokenLength = chunks.reduce((total, chunk) => total + chunk.text.length, 0);
   }
 
-  static of(text: string, maxChunkLength = DEFAULT_MAX_CHUNK_LENGTH): Narration {
+  static of(text: string, policy: ChunkingPolicy = DEFAULT_CHUNKING): Narration {
     let offset = 0;
-    const chunks = splitIntoChunks(text, maxChunkLength).map((chunkText, index) => {
+    const chunks = splitIntoChunks(text, policy).map((chunkText, index) => {
       const chunk: NarrationChunk = { index, text: chunkText, startOffset: offset };
       offset += chunkText.length;
       return chunk;

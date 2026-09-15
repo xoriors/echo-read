@@ -54,6 +54,12 @@ export interface ExtractPdfRequest {
 export interface GenerateSpeechRequest {
   text: string;
   voiceName: string;
+  /**
+   * The model that rendered the previous part, from that response's `model`.
+   * The same voice name is a different voice on a different model, so the
+   * server leads with this one when it can. A name it cannot serve is ignored.
+   */
+  preferredModel?: string;
 }
 
 export interface DocumentResponse {
@@ -68,6 +74,8 @@ export interface VideoAnalysisResponse extends DocumentResponse {
 export interface GenerateSpeechResponse {
   /** Raw 16-bit PCM at 24 kHz, base64 encoded. */
   base64Audio: string;
+  /** The model that rendered it. Sent back as `preferredModel` for the next part. */
+  model: string;
 }
 
 export interface ApiErrorResponse {

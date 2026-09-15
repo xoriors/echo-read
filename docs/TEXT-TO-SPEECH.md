@@ -16,12 +16,13 @@ BROWSER                          SERVER (Fly, fra)              GOOGLE
 ──────────────────────────────   ────────────────────────────   ─────────────
 NarrationPlayer
   splits text into chunks
-  (≤ 4000 chars, sentence
-   boundaries)
+  (300 → 900 → 2700 → 4000
+   chars, sentence boundaries)
         │
         │  HttpSpeechGateway
         │  POST /api/generate-speech
-        │  { text, voiceName }
+        │  { text, voiceName,
+        │    preferredModel }
         ▼
    ────────────────────────►  speechRouter
                                SpeakTextUseCase
@@ -35,7 +36,7 @@ NarrationPlayer
                                  ─────────────────────────────►  Gemini TTS
                                                                       │
                                       ◄──────────────────────── base64 PCM
-                               { base64Audio }
+                               { base64Audio, model }
    ◄────────────────────────
         │
         ▼
@@ -51,19 +52,31 @@ NarrationPlayer
 
 `src/client/domain/textChunker.ts`
 
-A document is split into pieces of at most **4000 characters**, cut on sentence
-boundaries.
+A document is split into pieces, cut on sentence boundaries. The pieces ramp
+in size: the first is at most **300 characters**, the second 900, the third
+2700, and every one after that **4000** (`DEFAULT_CHUNKING`).
 
 Three reasons, all of which apply to any TTS integration:
 
 - Synthesis is **billed and rate-limited per call**.
 - Long passages **time out**.
-- Time-to-first-audio is what a listener experiences. Synthesising a whole
-  article before playing anything would mean a minute of silence.
+- Time-to-first-audio is what a listener experiences. Nothing plays until the
+  first piece has been synthesised in full, so the size of that piece *is* the
+  wait: a sentence or two is a few seconds, and 4000 characters was half a
+  minute.
+
+The ramp is what makes a small first piece affordable. A piece only has to be
+long enough to keep playing while the next one is made, and the next one is
+requested the moment this one is (see [Prefetch](#5-prefetch)), so each can be
+a few times longer than the last. The ceiling stays at 4000, so a long
+document costs two or three requests more than it did, not several times as
+many.
 
 Splitting on sentence boundaries rather than a hard character count keeps the
 seams from landing mid-thought. Seams are audible — the model has no context
-across a call, so prosody resets at every boundary.
+across a call, so prosody resets at every boundary. A single "sentence" longer
+than a whole piece — a list, a heading, a passage with no punctuation — is cut
+between words rather than sent whole.
 
 ### 2. Request (browser → server)
 
@@ -71,8 +84,11 @@ across a call, so prosody resets at every boundary.
 
 ```ts
 POST /api/generate-speech
-{ "text": "...", "voiceName": "Kore" }
+{ "text": "...", "voiceName": "Kore", "preferredModel": "gemini-2.5-flash-preview-tts" }
 ```
+
+`preferredModel` is whatever the previous answer's `model` was, and is absent
+on the first request. See [Same voice on every part](#same-voice-on-every-part).
 
 Wrapped in `ApiClient` with `SPEECH_RETRY_POLICY`: **15 attempts**, 40s wait on
 a rate limit, 10s on "unavailable", 5s linear backoff step. Speech waits far
@@ -104,6 +120,23 @@ on our side.
 
 Worst case before the caller hears anything: 3 models × 3 attempts, plus waits.
 
+#### Same voice on every part
+
+Falling back changes the voice. `Kore` on `gemini-2.5-pro-preview-tts` is not
+the `Kore` of `gemini-2.5-flash-preview-tts`, and a narrator that changes
+between parts is the seam a listener notices most. So every answer carries the
+`model` that rendered it, the browser's `HttpSpeechGateway` sends it back as
+`preferredModel` with the next request, and the server moves that model to the
+front of the chain — provided it is one of the configured ones; any other name
+is ignored. The pin also saves the retries: once a busy model has been
+abandoned for one part, the next part does not march through it again.
+
+Two parts requested at the same moment cannot pin to each other. The first two
+parts of a document go out together (see Prefetch), so under overload during
+exactly those two calls they can still come from different models. From the
+first answer on, everything is pinned. The pin is kept across documents and
+voice changes, since consistency is welcome everywhere.
+
 ### 4. Playback (browser)
 
 `src/client/adapters/outbound/audio/pcm.ts`, `webAudioOutput.ts`
@@ -122,8 +155,10 @@ rather than failing — a silent bug.
 
 `src/client/application/narrationPlayer.ts`
 
-When chunk *N* starts playing, chunk *N+1* is requested in the background
-(`prefetch`). Completed clips are cached in a `Map`; in-flight requests are
+When chunk *N* is requested, chunk *N+1* is requested right behind it
+(`prefetch`) — not once *N* starts playing. The head start is the synthesis
+time of *N*, which is what keeps the seam after a short first part from being
+a stall. Completed clips are cached in a `Map`; in-flight requests are
 deduplicated so a seek does not fire the same call twice. A failed prefetch is
 not reported — it is simply retried when playback reaches it.
 
@@ -165,14 +200,18 @@ text to Gemini too. Making TTS local would make *one of five* paths local. See
 
 | Symptom | Cause | Where it is handled |
 |---|---|---|
-| Long pause, then audio | Cold start + first chunk round trip | Nothing to fix; design for it |
+| Long pause, then audio | Cold start + first chunk round trip | First chunk is a sentence or two (`DEFAULT_CHUNKING`); the cold start remains |
+| Narrator changes between parts | Model fallback part-way through a document | `preferredModel` pins later parts to the first's model |
 | `429 … free_tier_requests, limit: 20` | Free-tier quota exhausted | Model fallback, then a real error |
 | Silence, no error | *(fixed)* a batch failure swallowed | `buildStudyPack` now throws |
 | Wrong pitch/speed | Sample-rate mismatch | `NARRATION_SAMPLE_RATE` must equal `GEMINI_TTS_SAMPLE_RATE` |
 
 The free tier is the practical ceiling: **20 requests** for
-`gemini-2.5-flash-preview-tts`. At 4000 characters per request that is roughly
-80,000 characters of narration per day — two or three long articles.
+`gemini-2.5-flash-preview-tts`. The first three parts of a document are short
+(300, 900 and 2700 characters) and every part after them is 4000, so a long
+article costs three requests more than its length alone would suggest; twenty
+requests are roughly 70,000 characters of narration per day — two long
+articles, or a handful of short ones.
 
 ---
 
@@ -188,7 +227,9 @@ interface SpeechGateway {
 ```
 
 Everything above them — chunking, prefetching, caching, playback, the card
-speaker — depends on that signature and nothing else. A different provider, or
+speaker — depends on that signature and nothing else. The server port carries
+one thing more, in each direction: the model that rendered the previous part,
+and the model that rendered this one. A different provider, or
 an on-device model, is a swap in `src/client/config/container.ts`. Nothing else
 needs to know.
 

@@ -12,12 +12,17 @@ export function speechRouter(speakText: SpeakTextUseCase): Router {
   router.post(
     API_ROUTES.generateSpeech,
     route(async (req, res) => {
-      const { text, voiceName } = req.body ?? {};
+      const { text, voiceName, preferredModel } = req.body ?? {};
       if (typeof text !== 'string' || !text || typeof voiceName !== 'string' || !voiceName) {
         throw new ValidationError('Text and voiceName are required');
       }
 
-      const audio = await speakText.execute({ text, voiceName });
+      const audio = await speakText.execute({
+        text,
+        voiceName,
+        // A hint, not a requirement: anything but a name is simply not one.
+        preferredModel: typeof preferredModel === 'string' && preferredModel ? preferredModel : undefined,
+      });
       res.json(audio satisfies GenerateSpeechResponse);
     }),
   );

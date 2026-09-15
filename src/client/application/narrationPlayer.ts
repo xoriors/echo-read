@@ -169,9 +169,15 @@ export class NarrationPlayer {
     this.patch({ state: PlaybackState.Buffering, chunkIndex, error: null });
     this.deps.status.publish(`Playing part ${chunkIndex + 1} of ${this.narration.chunkCount}...`);
 
+    const pending = this.clipFor(chunkIndex, startCharacter);
+    // The next part is requested now, not once this one is playing. The first
+    // parts of a document are short — that is what gets audio out quickly —
+    // so the head start is what keeps the seam after them from being a stall.
+    void this.prefetch(chunkIndex + 1);
+
     let clip: AudioClip;
     try {
-      clip = await this.clipFor(chunkIndex, startCharacter);
+      clip = await pending;
     } catch (error) {
       if (this.isStale(token, generation)) return;
       this.fail(`Failed to load audio for part ${chunkIndex + 1}: ${messageOf(error)}`);
@@ -198,8 +204,6 @@ export class NarrationPlayer {
       positionSeconds: offset,
     });
     this.deps.status.publish('');
-
-    void this.prefetch(chunkIndex + 1);
   }
 
   /** Resumes from wherever the transport currently sits. */
