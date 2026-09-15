@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { PLAYBACK_SPEEDS, PlaybackState, formatTimecode } from '../../../../domain/playback';
 import type { NarrationSnapshot } from '../../../../application/narrationPlayer';
 import { Checkbox, LabelledSelect } from './controls';
-import { NextIcon, PauseIcon, PlayIcon, RewindIcon, StopIcon } from './icons';
+import { ChevronUpIcon, NextIcon, PauseIcon, PlayIcon, RewindIcon, SlidersIcon, StopIcon } from './icons';
 import { SLEEP_TIMER_OPTIONS } from '../hooks/useSleepTimer';
 
 export interface ReadingPreferences {
@@ -31,7 +31,30 @@ interface PlayerControlsProps {
   onPreferencesChange: (changes: Partial<ReadingPreferences>) => void;
 }
 
-/** The sticky transport bar and the reading preferences that sit with it. */
+/** Ties the disclosure button to the panel it opens, for screen readers. */
+const ADVANCED_PANEL_ID = 'player-advanced-controls';
+
+/**
+ * The transport bar, pinned to the bottom of the viewport, and the settings
+ * that used to sit beside it.
+ *
+ * Two things shape this layout.
+ *
+ * The transport has to be reachable at any scroll position. Someone reading
+ * along a long article should be able to pause without first scrolling to find
+ * the button — so the bar is `fixed` rather than `sticky`, at every width.
+ *
+ * That is only possible because the bar is now *small*. Rewind/play/stop/next
+ * and the timeline stay; text size, the three reading toggles, voice, speed and
+ * the sleep timer moved into a disclosure that opens above them. Together those
+ * ran to eight rows on a phone — most of the viewport — and something that size
+ * cannot float over a page, it just covers it. Collapsed, this is two rows.
+ *
+ * The panel is opaque in every state. It floats over the page, so its
+ * background is not decoration: it is the only thing stopping the text
+ * underneath being read through it. Disabled therefore dims the controls
+ * *inside* the panel, never the panel itself.
+ */
 export function PlayerControls({
   narration,
   voices,
@@ -47,78 +70,166 @@ export function PlayerControls({
   onSpeedChange,
   onPreferencesChange,
 }: PlayerControlsProps): React.JSX.Element {
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const barRef = useRef<HTMLDivElement>(null);
+  const barHeight = useMeasuredHeight(barRef);
+
   const isPlaying = narration.state === PlaybackState.Playing;
   const hasMoreParts = narration.chunkIndex + 1 < narration.chunkCount;
+  const dimmed = `transition-opacity duration-500 ${enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`;
 
   return (
-    // Opaque, dimmed on the inside, and only sticky where it is actually a bar.
-    //
-    // It used to be `bg-gray-800/80` with `opacity-50` while disabled, which
-    // multiply to a 40% surface. Sticky means it floats over the page, so that
-    // background is not decoration — it is the only thing stopping the content
-    // underneath being read through it. While audio was being prepared, a
-    // phone showed the transport and the source form legible on top of each
-    // other.
-    //
-    // Disabled now dims the controls inside an opaque panel. Putting `opacity`
-    // on the panel dims its background too, which is the part that has to stay
-    // solid.
-    //
-    // And it only sticks from `sm` up. These controls sit in two rows on a
-    // wide screen and eight on a phone, where the panel is most of the
-    // viewport tall — something that size cannot float above a page, it just
-    // covers it. Below `sm` it stays in the flow, where scrolling reaches it
-    // and nothing hides behind it.
-    <div className="relative sm:sticky sm:bottom-4 w-full max-w-4xl bg-surface border border-line backdrop-blur-sm p-5 rounded-2xl shadow-2xl">
-      <div
-        className={`transition-opacity duration-500 ${
-          enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'
-        }`}
-      >
-      <div className="flex items-center justify-center space-x-6 mb-4">
-        <TransportButton onClick={onRewind} disabled={!enabled} label="Rewind 10 seconds">
-          <RewindIcon />
-        </TransportButton>
-        <button
-          type="button"
-          onClick={onTogglePlay}
-          className="bg-blue-600 text-white rounded-full p-4 hover:bg-blue-500 transition-transform transform hover:scale-110 disabled:bg-gray-600 disabled:cursor-not-allowed"
-          disabled={!enabled}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
-        >
-          {isPlaying ? <PauseIcon /> : <PlayIcon />}
-        </button>
-        <TransportButton onClick={onStop} disabled={!enabled} label="Stop">
-          <StopIcon />
-        </TransportButton>
-        <TransportButton onClick={onNext} disabled={!enabled || !hasMoreParts} label="Next part" className="ml-2">
-          <NextIcon />
-        </TransportButton>
-      </div>
+    <>
+      {/*
+        A fixed bar is out of the flow, so the page does not know it is there
+        and the last lines of a document end up underneath it. This stands in
+        for the bar's height in the flow — measured rather than guessed,
+        because the bar grows with the part label, the sleep countdown and the
+        phone's bottom inset.
 
-      {narration.chunkCount > 1 && (
-        <div className="text-center text-xs text-muted mt-1 mb-2">
-          Part {narration.chunkIndex + 1} of {narration.chunkCount}
+        Only the bar itself is counted. The disclosure opens *over* the page
+        like a sheet; reserving room for it as well would jump the document
+        every time it was opened.
+      */}
+      <div aria-hidden="true" style={{ height: barHeight }} />
+
+      {/* The gutters are click-through, so the page either side of a narrow
+          bar stays usable. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-2 sm:px-6 pointer-events-none">
+        <div className="pointer-events-auto w-full max-w-4xl bg-surface border border-b-0 border-line rounded-t-2xl shadow-2xl">
+          {advancedOpen && (
+            <AdvancedControls
+              narration={narration}
+              voices={voices}
+              preferences={preferences}
+              sleepSecondsRemaining={sleepSecondsRemaining}
+              className={dimmed}
+              onVoiceChange={onVoiceChange}
+              onSpeedChange={onSpeedChange}
+              onPreferencesChange={onPreferencesChange}
+            />
+          )}
+
+          <div
+            ref={barRef}
+            className="px-3 sm:px-5 pt-3"
+            // Clears the home indicator on a phone, and nothing anywhere else.
+            style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
+          >
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+              {/* Part and sleep are status, not settings: they stay legible
+                  with the disclosure shut, which is where a reader who set a
+                  sleep timer and put the phone down will leave it. */}
+              <div className="flex flex-col items-start justify-center text-xs text-muted leading-tight min-w-0">
+                {narration.chunkCount > 1 && (
+                  <span className="whitespace-nowrap">
+                    Part {narration.chunkIndex + 1} of {narration.chunkCount}
+                  </span>
+                )}
+                {sleepSecondsRemaining !== null && (
+                  <span className="whitespace-nowrap text-blue-300">
+                    Sleep {formatTimecode(sleepSecondsRemaining)}
+                  </span>
+                )}
+              </div>
+
+              <div className={`flex items-center justify-center space-x-4 sm:space-x-6 ${dimmed}`}>
+                <TransportButton onClick={onRewind} disabled={!enabled} label="Rewind 10 seconds">
+                  <RewindIcon />
+                </TransportButton>
+                <button
+                  type="button"
+                  onClick={onTogglePlay}
+                  className="bg-blue-600 text-white rounded-full p-3 sm:p-4 hover:bg-blue-500 transition-transform transform hover:scale-110 disabled:bg-gray-600 disabled:cursor-not-allowed"
+                  disabled={!enabled}
+                  aria-label={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? <PauseIcon /> : <PlayIcon />}
+                </button>
+                <TransportButton onClick={onStop} disabled={!enabled} label="Stop">
+                  <StopIcon />
+                </TransportButton>
+                <TransportButton onClick={onNext} disabled={!enabled || !hasMoreParts} label="Next part">
+                  <NextIcon />
+                </TransportButton>
+              </div>
+
+              {/* Outside the dimmed group on purpose: opening the settings is
+                  not a playback command, and a reader waiting on audio can
+                  still read what is set. */}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setAdvancedOpen((open) => !open)}
+                  aria-expanded={advancedOpen}
+                  aria-controls={ADVANCED_PANEL_ID}
+                  title="Playback and reading settings"
+                  className="flex items-center gap-1 px-2 sm:px-3 py-2 rounded-md border border-line-strong bg-raised hover:bg-raised-hover text-fg text-sm font-semibold transition-colors"
+                >
+                  <SlidersIcon />
+                  <span className="hidden sm:inline">Settings</span>
+                  <span className={`transition-transform duration-200 ${advancedOpen ? 'rotate-180' : ''}`}>
+                    <ChevronUpIcon />
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className={`flex items-center space-x-3 mt-2 ${dimmed}`}>
+              <span className="text-sm sm:text-base tabular-nums">{formatTimecode(narration.positionSeconds)}</span>
+              <input
+                type="range"
+                min="0"
+                max={narration.durationSeconds || 0}
+                step="0.1"
+                value={narration.positionSeconds}
+                onChange={(event) => onSeek(Number(event.target.value))}
+                aria-label="Seek"
+                className="w-full h-2 bg-raised-hover rounded-lg appearance-none cursor-pointer accent-blue-500 disabled:cursor-not-allowed"
+                disabled={!enabled}
+              />
+              <span className="text-sm sm:text-base tabular-nums">{formatTimecode(narration.durationSeconds)}</span>
+            </div>
+          </div>
         </div>
-      )}
-
-      <div className="flex items-center space-x-4">
-        <span className="text-lg">{formatTimecode(narration.positionSeconds)}</span>
-        <input
-          type="range"
-          min="0"
-          max={narration.durationSeconds || 0}
-          step="0.1"
-          value={narration.positionSeconds}
-          onChange={(event) => onSeek(Number(event.target.value))}
-          aria-label="Seek"
-          className="w-full h-2 bg-raised-hover rounded-lg appearance-none cursor-pointer accent-blue-500 disabled:cursor-not-allowed"
-          disabled={!enabled}
-        />
-        <span className="text-lg">{formatTimecode(narration.durationSeconds)}</span>
       </div>
+    </>
+  );
+}
 
-      <div className="flex flex-wrap justify-center items-center gap-4 mt-4">
+/**
+ * Everything that is set once and then left alone: reading size, the three
+ * reading toggles, voice, speed and the sleep timer.
+ *
+ * It scrolls inside a bounded height. On a phone this list is taller than the
+ * screen, and a sheet that pushed the transport off the top would take away
+ * the very buttons it opened above.
+ */
+function AdvancedControls({
+  narration,
+  voices,
+  preferences,
+  sleepSecondsRemaining,
+  className,
+  onVoiceChange,
+  onSpeedChange,
+  onPreferencesChange,
+}: {
+  narration: NarrationSnapshot;
+  voices: readonly string[];
+  preferences: ReadingPreferences;
+  sleepSecondsRemaining: number | null;
+  className: string;
+  onVoiceChange: (voice: string) => void;
+  onSpeedChange: (speed: number) => void;
+  onPreferencesChange: (changes: Partial<ReadingPreferences>) => void;
+}): React.JSX.Element {
+  return (
+    <div
+      id={ADVANCED_PANEL_ID}
+      className="border-b border-line px-3 sm:px-5 py-4 max-h-[50vh] overflow-y-auto overscroll-contain"
+    >
+      <div className={`flex flex-wrap justify-center items-center gap-3 sm:gap-4 ${className}`}>
         <FontSizeControl
           value={preferences.fontSize}
           onChange={(fontSize) => onPreferencesChange({ fontSize })}
@@ -168,7 +279,6 @@ export function PlayerControls({
           options={SLEEP_TIMER_OPTIONS.map(({ minutes, label }) => ({ value: minutes, label }))}
           onChange={(value) => onPreferencesChange({ sleepTimerMinutes: Number(value) })}
         />
-        </div>
       </div>
     </div>
   );
@@ -179,13 +289,11 @@ function TransportButton({
   onClick,
   disabled,
   label,
-  className = '',
   children,
 }: {
   onClick: () => void;
   disabled: boolean;
   label: string;
-  className?: string;
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
@@ -193,7 +301,7 @@ function TransportButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className={`text-chrome hover:text-fg transition-transform transform hover:scale-110 disabled:text-subtle ${className}`}
+      className="text-chrome hover:text-fg transition-transform transform hover:scale-110 disabled:text-subtle"
       disabled={disabled}
     >
       {children}
@@ -228,4 +336,30 @@ function FontSizeControl({
       <span className="text-xl font-bold text-muted">A</span>
     </div>
   );
+}
+
+/**
+ * The live height of an element, for the spacer that stands in for it.
+ *
+ * `ResizeObserver` rather than a one-off measurement: the bar reflows when a
+ * sleep timer starts, when a multi-part document loads, and on rotation.
+ */
+function useMeasuredHeight(ref: React.RefObject<HTMLElement | null>): number {
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const measure = (): void => setHeight(node.getBoundingClientRect().height);
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return height;
 }

@@ -212,6 +212,11 @@ For whoever is building the interface around this:
   opacity dims the surface as well as the contents, so a transport bar that
   overlaps content becomes a window onto it. Dim the controls inside an opaque
   panel. *(This one was a real bug here — see `PlayerControls.tsx`.)*
+- **Pinning a transport costs screen, so only the transport may be pinned.**
+  Play, skip and the timeline have to be in reach at any scroll position;
+  voice, speed, text size and the sleep timer are set once and then left alone.
+  Pin the first, and put the rest behind a disclosure — a bar carrying both is
+  most of a phone, which cannot float over a page, only cover it.
 - **Offline and quota states are product states, not error text.** They are
   where a local fallback earns its keep.
 
