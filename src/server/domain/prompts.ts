@@ -116,6 +116,13 @@ export function pdfPrompt(readMode: ReadMode, selection: PdfSelection): Prompt {
 }
 
 /**
+ * Version of {@link videoAnalysisPrompt}. Cached analyses are stored under it,
+ * so bump it whenever the prompt or the shape of its answer changes: the old
+ * analyses then stop matching and every video is analysed again.
+ */
+export const VIDEO_PROMPT_VERSION = 1;
+
+/**
  * Asks the model to research a video via web search. The strict output shape
  * is what {@link parseVideoAnalysis} relies on.
  */

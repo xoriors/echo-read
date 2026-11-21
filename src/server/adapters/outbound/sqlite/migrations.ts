@@ -207,6 +207,27 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX push_subscription_owner_idx ON push_subscription (owner_id);
     `,
   },
+  {
+    id: 5,
+    name: 'video_analysis_cache',
+    sql: `
+      -- Analysing a video is slow and uses up the daily video quota, so
+      -- keep the result. One row per video and prompt version, shared by
+      -- all users, since a public video doesn't change between them.
+      -- A new prompt version won't find the old rows, which is exactly
+      -- what we want.
+      CREATE TABLE video_analysis (
+        video_id        TEXT NOT NULL,
+        prompt_version  INTEGER NOT NULL,
+        model           TEXT NOT NULL,
+        duration_s      INTEGER,
+        -- Kept as JSON: we never query inside it, only load it whole.
+        notes_json      TEXT NOT NULL,
+        created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (video_id, prompt_version)
+      );
+    `,
+  },
 ];
 
 const LEDGER = `
