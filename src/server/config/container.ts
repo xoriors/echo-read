@@ -9,6 +9,7 @@ import { ConsoleLogger } from '../adapters/outbound/logging/consoleLogger';
 import { migrate } from '../adapters/outbound/sqlite/migrations';
 import { SqliteDatabaseProvider } from '../adapters/outbound/sqlite/sqliteDatabase';
 import { SqliteStudyRepository } from '../adapters/outbound/sqlite/sqliteStudyRepository';
+import { SqliteVideoAnalysisCache } from '../adapters/outbound/sqlite/sqliteVideoAnalysisCache';
 import type { Logger } from '../application/ports/logger';
 import { AnalyzeVideoUseCase } from '../application/usecases/analyzeVideo';
 import { ReadArticleUseCase } from '../application/usecases/readArticle';
@@ -91,6 +92,7 @@ export function createServerContainer(config: ServerConfig): ServerContainer {
   );
 
   const studyRepository = new SqliteStudyRepository(database);
+  const videoAnalysisCache = new SqliteVideoAnalysisCache(database);
   const pushSender = new VapidPushSender(config.vapidPrivateKey, config.vapidSubject, logger);
 
   return {
@@ -98,7 +100,7 @@ export function createServerContainer(config: ServerConfig): ServerContainer {
     database,
     useCases: {
       readArticle: new ReadArticleUseCase(articleFetcher, analyzer, logger),
-      analyzeVideo: new AnalyzeVideoUseCase(analyzer),
+      analyzeVideo: new AnalyzeVideoUseCase(analyzer, videoAnalysisCache, logger),
       summarizeText: new SummarizeTextUseCase(analyzer),
       readPdf: new ReadPdfUseCase(analyzer),
       speakText: new SpeakTextUseCase(synthesizer),
