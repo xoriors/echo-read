@@ -131,5 +131,20 @@ class RecordingLogger implements Logger {
   check(logger.messages.includes('Could not save video analysis to cache'), 'and so is the failed save');
 }
 
+// ?refresh=1 skips the cache and replaces what was saved.
+{
+  const analyzer = new CountingAnalyzer();
+  const cache = new InMemoryCache();
+  const useCase = new AnalyzeVideoUseCase(analyzer, cache, new RecordingLogger());
+  await useCase.execute({ url: LINK });
+  const savedBefore = cache.saved.get(`${VIDEO_ID}:1`)?.createdAt;
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await useCase.execute({ url: LINK, refresh: true });
+  check(analyzer.calls === 2, 'a refresh asks the model even though the video is cached');
+  check(cache.saved.get(`${VIDEO_ID}:1`)?.createdAt !== savedBefore, 'and saves the new analysis over the old one');
+  await useCase.execute({ url: LINK });
+  check(analyzer.calls === 2, 'after a refresh, the next normal request is a cache hit again');
+}
+
 console.log(failures.length === 0 ? '\nAll passed' : `\n${failures.length} failed`);
 process.exit(failures.length === 0 ? 0 : 1);

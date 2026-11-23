@@ -10,6 +10,8 @@ import type { VideoAnalysisCache } from '../ports/videoAnalysisCache';
 
 export interface AnalyzeVideoCommand {
   url: string;
+  /** Skip the cache and analyse again. */
+  refresh?: boolean;
 }
 
 /** Saved when the analyzer doesn't say which model answered. */
@@ -26,9 +28,9 @@ export class AnalyzeVideoUseCase {
     private readonly analyzer: ContentAnalyzer,
     private readonly cache: VideoAnalysisCache,
     private readonly logger: Logger,
-  ) {}
+  ) { }
 
-  async execute({ url }: AnalyzeVideoCommand): Promise<VideoAnalysis> {
+  async execute({ url, refresh = false }: AnalyzeVideoCommand): Promise<VideoAnalysis> {
     if (!url?.trim()) throw new ValidationError('URL is required');
 
     // Only a YouTube video has an id to cache it under; anything else is
@@ -38,9 +40,11 @@ export class AnalyzeVideoUseCase {
       const fresh = await this.analyze(url);
       return fresh.analysis;
     }
-    const cached = await this.readCache(videoId);
-    if (cached !== null) {
-      return cached;
+    if (!refresh) {
+      const cached = await this.readCache(videoId);
+      if (cached !== null) {
+        return cached;
+      }
     }
     const fresh = await this.analyze(url);
     await this.writeCache(videoId, fresh.analysis, fresh.model);
