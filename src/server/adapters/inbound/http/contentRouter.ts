@@ -42,6 +42,8 @@ export function contentRouter(useCases: ContentUseCases): Router {
     route(async (req, res) => {
       const analysis = await useCases.analyzeVideo.execute({
         url: requireString(req.body, 'url', 'URL'),
+        // POST /api/analyze-video?refresh=1 analyses again instead of using the cache.
+        refresh: req.query.refresh === '1',
       });
       res.json(analysis satisfies VideoAnalysisResponse);
     }),

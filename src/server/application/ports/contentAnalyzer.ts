@@ -27,6 +27,8 @@ export interface AnalysisResult {
   text: string;
   /** Pages the model grounded on; empty unless `useWebSearch` was set. */
   sources: GroundingSource[];
+  /** Which model answered. */
+  model?: string;
 }
 
 /**

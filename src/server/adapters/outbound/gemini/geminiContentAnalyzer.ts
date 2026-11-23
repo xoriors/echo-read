@@ -73,6 +73,7 @@ export class GeminiContentAnalyzer implements ContentAnalyzer {
         return {
           text: response.text?.trim() ?? '',
           sources: useWebSearch ? readGroundingSources(response) : [],
+          model,
         };
       },
     });
