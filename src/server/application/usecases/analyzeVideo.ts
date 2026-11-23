@@ -24,6 +24,12 @@ const UNKNOWN_MODEL = 'unknown';
  * from the cache instead, so it costs neither time nor video quota again.
  */
 export class AnalyzeVideoUseCase {
+  /**
+   * Analyses that have started but not finished, by video id. Only lives in
+   * memory: it is there to merge requests that arrive at the same moment, and
+   * the cache takes over once the first one is done.
+   */
+  private readonly inFlight = new Map<string, Promise<VideoAnalysis>>();
   constructor(
     private readonly analyzer: ContentAnalyzer,
     private readonly cache: VideoAnalysisCache,
@@ -46,6 +52,24 @@ export class AnalyzeVideoUseCase {
         return cached;
       }
     }
+    // Two clicks on the same video share one model call instead of paying twice.
+    const running = this.inFlight.get(videoId);
+    if (running !== undefined) {
+      this.logger.info('Video analysis already running; waiting for it', { videoId });
+      return running;
+    }
+
+    const analysis = this.analyzeAndSave(url, videoId);
+    this.inFlight.set(videoId, analysis);
+    try {
+      return await analysis;
+    } finally {
+      this.inFlight.delete(videoId);
+    }
+  }
+
+  /** Analyses a video and keeps the result for next time. */
+  private async analyzeAndSave(url: string, videoId: string): Promise<VideoAnalysis> {
     const fresh = await this.analyze(url);
     await this.writeCache(videoId, fresh.analysis, fresh.model);
     return fresh.analysis;

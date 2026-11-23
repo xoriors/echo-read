@@ -26,6 +26,8 @@ const check = (ok: boolean, label: string): void => {
 const VIDEO_ID = 'dQw4w9WgXcQ';
 const LINK = `https://www.youtube.com/watch?v=${VIDEO_ID}`;
 const SHORT_LINK = `https://youtu.be/${VIDEO_ID}`;
+/** How long SlowAnalyzer takes; long enough for two requests to overlap. */
+const ANSWER_DELAY_MS = 20;
 
 /** A reply in the shape the video prompt asks for. */
 const REPLY = `VIDEO_TITLE: Async Rust Without the Pain
@@ -39,6 +41,25 @@ class CountingAnalyzer implements ContentAnalyzer {
   async analyze(_request: AnalysisRequest): Promise<AnalysisResult> {
     this.calls += 1;
     return { text: REPLY, sources: [], model: 'gemini-test' };
+  }
+}
+
+/** Takes a moment to answer, like a real model, so requests can overlap. */
+class SlowAnalyzer extends CountingAnalyzer {
+  async analyze(request: AnalysisRequest): Promise<AnalysisResult> {
+    await new Promise((resolve) => setTimeout(resolve, ANSWER_DELAY_MS));
+    return super.analyze(request);
+  }
+}
+
+/** Fails the first time it is asked, then answers normally. */
+class FailsOnceAnalyzer extends CountingAnalyzer {
+  async analyze(request: AnalysisRequest): Promise<AnalysisResult> {
+    const result = await super.analyze(request);
+    if (this.calls === 1) {
+      throw new Error('model is down');
+    }
+    return result;
   }
 }
 
@@ -144,6 +165,40 @@ class RecordingLogger implements Logger {
   check(cache.saved.get(`${VIDEO_ID}:1`)?.createdAt !== savedBefore, 'and saves the new analysis over the old one');
   await useCase.execute({ url: LINK });
   check(analyzer.calls === 2, 'after a refresh, the next normal request is a cache hit again');
+}
+
+// Two requests at once share one model call.
+{
+  const analyzer = new SlowAnalyzer();
+  const cache = new InMemoryCache();
+  const logger = new RecordingLogger();
+  const useCase = new AnalyzeVideoUseCase(analyzer, cache, logger);
+  const [first, second] = await Promise.all([
+    useCase.execute({ url: LINK }),
+    useCase.execute({ url: SHORT_LINK }),
+  ]);
+  check(analyzer.calls === 1, 'two requests for the same video at once ask the model only once');
+  check(JSON.stringify(first) === JSON.stringify(second), 'and both get the same analysis');
+  check(
+    logger.messages.includes('Video analysis already running; waiting for it'),
+    'and the log says the second one waited',
+  );
+}
+
+// A failed analysis is not remembered as running.
+{
+  const analyzer = new FailsOnceAnalyzer();
+  const useCase = new AnalyzeVideoUseCase(analyzer, new InMemoryCache(), new RecordingLogger());
+  let firstFailed = false;
+  try {
+    await useCase.execute({ url: LINK });
+  } catch {
+    firstFailed = true;
+  }
+  check(firstFailed, 'when the model fails, the request fails');
+  const retry = await useCase.execute({ url: LINK });
+  check(analyzer.calls === 2, 'and trying again asks the model again instead of waiting forever');
+  check(retry.text.length > 0, 'and this time gets an analysis');
 }
 
 console.log(failures.length === 0 ? '\nAll passed' : `\n${failures.length} failed`);
