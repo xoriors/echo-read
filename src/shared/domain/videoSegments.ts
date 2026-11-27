@@ -20,6 +20,9 @@ export interface VideoSegment {
   kind: SegmentKind;
 }
 
+/** The model's call on whether a video is worth the time. */
+export type VerdictCall = 'watch' | 'skim' | 'skip';
+
 /** True for anything except real content. */
 export function isSkippable(kind: SegmentKind): boolean {
   return kind !== 'content';
